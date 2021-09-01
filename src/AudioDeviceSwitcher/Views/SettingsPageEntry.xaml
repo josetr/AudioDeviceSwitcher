@@ -1,0 +1,21 @@
+﻿<UserControl
+    x:Class="AudioDeviceSwitcher.SettingsPageEntry"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:AudioDeviceSwitcher"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+    
+    <Grid HorizontalAlignment="Stretch" ColumnSpacing="10" Padding="0,5" >
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <CheckBox Grid.Column="0" MinWidth="0" IsChecked="{x:Bind IsChecked, Mode=TwoWay}" Command="{x:Bind Command}" />
+        <StackPanel Grid.Column="1" Orientation="Vertical" >
+            <TextBlock VerticalAlignment="Center" Text="{x:Bind Title}" />
+            <TextBlock VerticalAlignment="Center" FontSize="11" Padding="5,0,0,0" Text="{x:Bind Reason}" />
+        </StackPanel>
+    </Grid>
+</UserControl>

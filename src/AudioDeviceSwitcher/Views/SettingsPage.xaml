@@ -1,0 +1,17 @@
+﻿<Page
+    x:Class="AudioDeviceSwitcher.SettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:AudioDeviceSwitcher"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <StackPanel Orientation="Vertical" Padding="10">
+        <local:SettingsPageEntry Title="Dark theme" Reason="" IsChecked="{x:Bind ViewModel.DarkTheme, Mode=TwoWay}" Command="{x:Bind ViewModel.SetDarkThemeCommand}" />
+        <local:SettingsPageEntry Title="Run at startup" Reason="Required to support global hotkeys" IsChecked="{x:Bind ViewModel.RunAtStartup, Mode=TwoWay}" Command="{x:Bind ViewModel.SetRunAtStartupAsyncCommand}" />
+        <local:SettingsPageEntry Title="Run in background" Reason="Required to support global hotkeys" IsChecked="{x:Bind ViewModel.RunInBackground, Mode=TwoWay}" Command="{x:Bind ViewModel.SetRunInBackgroundAsyncCommand}" />
+        <local:SettingsPageEntry Title="Switch communication device" Reason="" IsChecked="{x:Bind ViewModel.SwitchCommunicationDevice, Mode=TwoWay}" Command="{x:Bind ViewModel.SetSwitchCommunicationDeviceAsyncCommand}" />
+        <local:SettingsPageEntry Title="Show disabled devices" Reason="" IsChecked="{x:Bind ViewModel.ShowDisabledDevices, Mode=TwoWay}" Command="{x:Bind ViewModel.SetShowDisabledDevicesAsyncCommand}" />
+    </StackPanel>
+</Page>

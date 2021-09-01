@@ -1,0 +1,35 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <RootNamespace>AudioDeviceSwitcher</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <RuntimeIdentifiers>win10-x64;win10-x86;win10-arm64</RuntimeIdentifiers>
+    <RuntimeIdentifier>win10-$(Platform)</RuntimeIdentifier>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <UseWinUI>true</UseWinUI>
+    <Nullable>enable</Nullable>
+    <PublishSingleFile Condition="'$(AppPublishSingleFile)' == 'true'">true</PublishSingleFile>
+    <PublishTrimmed>false</PublishTrimmed> <!-- https://github.com/microsoft/CsWinRT/issues/373 -->
+    <SelfContained>true</SelfContained>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.ProjectReunion" Version="0.8.2" />
+    <PackageReference Include="Microsoft.ProjectReunion.Foundation" Version="0.8.2" />
+    <PackageReference Include="Microsoft.ProjectReunion.WinUI" Version="0.8.2" />
+    <PackageReference Include="MvvmGen" Version="1.1.1" />
+    <PackageReference Include="PInvoke.User32" Version="0.7.104" />
+    <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.354">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Manifest Include="$(ApplicationManifest)" />
+    <AdditionalFiles Include="stylecop.json" />
+    <None Update="AudioSwitch.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+</Project>

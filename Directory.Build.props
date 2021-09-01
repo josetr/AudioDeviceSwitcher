@@ -1,0 +1,24 @@
+<Project>
+	<PropertyGroup>
+    <SolutionDir>$(MSBuildThisFileDirectory)</SolutionDir>
+    <BaseIntermediateOutputPath>$(SolutionDir)obj\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
+    <OutputPath>$(SolutionDir)bin\$(MSBuildProjectName)\$(Configuration)\</OutputPath>
+    <LangVersion>latest</LangVersion>
+    <Platforms>x64;x86;arm64</Platforms>
+    <WinPlatformVersion>10.0.18362.0</WinPlatformVersion>
+    <TargetFramework>net5.0-windows$(WinPlatformVersion)</TargetFramework>
+    <TargetPlatformVersion>$(WinPlatformVersion)</TargetPlatformVersion>
+    <TargetPlatformMinVersion>$(WinPlatformVersion)</TargetPlatformMinVersion>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <Copyright>© 2021 Jose Torres. All rights reserved.</Copyright>
+    <Authors>Jose Torres</Authors>
+    <Description>Audio Device Switcher is a Windows 10 app that makes it easy to quickly switch your default audio device.</Description>
+    <Version>$(NBGV_Version)</Version>
+    <AssemblyVersion>$(NBGV_AssemblyVersion)</AssemblyVersion>
+    <AssemblyFileVersion>$(NBGV_AssemblyFileVersion)</AssemblyFileVersion>
+    <AssemblyInformationalVersion>$(NBGV_AssemblyInformationalVersion)</AssemblyInformationalVersion>
+  </PropertyGroup>
+
+</Project>

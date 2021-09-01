@@ -1,0 +1,10 @@
+﻿// Copyright (c) 2021 Jose Torres. All rights reserved. Licensed under the Apache License, Version 2.0. See LICENSE.md file in the project root for full license information.
+
+namespace AudioDeviceSwitcher
+{
+    public class Device
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+    }
+}

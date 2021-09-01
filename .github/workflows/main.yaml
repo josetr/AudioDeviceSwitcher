@@ -1,0 +1,64 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
+
+    runs-on: windows-latest
+
+    env:
+      PLATFORM: x64
+      CONFIGURATION: Release
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: '0'
+ 
+      - name: Add msbuild to PATH
+        uses: microsoft/setup-msbuild@v1.0.2
+
+      - name: Create Certificate
+        env:
+          CERTIFICATE: ${{ secrets.CERTIFICATE }}
+        run: ./build create-certificate
+        
+      - name: Generate version
+        uses: aarnott/nbgv@master
+        with:
+          setAllVars: true
+
+      - name: Write version
+        run: ./build set-package-version
+        
+      - name: Install Audio Devices
+        run: ./build install-audio-devices
+
+      - name: Restore
+        run: ./build restore
+
+      - name: Test
+        run: ./build test
+
+      - name: Build Package
+        run: ./build
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v2
+        with:
+          name: AudioDeviceSwitcher ${{ env.NBGV_version }}
+          path: AppPackages/AudioDeviceSwitcher (Package)_${{ env.NBGV_SimpleVersion }}.0_Test/*.msixbundle
+
+      - name: Upload certificate
+        uses: actions/upload-artifact@v2
+        with:
+          name: Certificate
+          path: AppPackages/AudioDeviceSwitcher (Package)_${{ env.NBGV_SimpleVersion }}.0_Test/*.cer
+
+      - name: Upload bundle for ms store
+        uses: actions/upload-artifact@v2
+        with:
+          name: Upload
+          path: AppPackages/*.msixupload

@@ -1,0 +1,70 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
+  xmlns:uap8="http://schemas.microsoft.com/appx/manifest/uap/windows10/8"
+  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="desktop uap8 uap5 uap rescap">
+
+  <Identity
+    Name="16084JoseTorres.AudioDeviceSwitcher"
+    Publisher="CN=CE98524C-F7AE-43D1-BAA2-86CBC37B8616"
+    Version="1.0.0.0" />
+
+  <Properties>
+    <DisplayName>Audio Device Switcher</DisplayName>
+    <PublisherDisplayName>Jose Torres</PublisherDisplayName>
+    <Logo>Images\StoreLogo.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Universal" MinVersion="10.0.18362.0" MaxVersionTested="10.0.19041.0" />
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.18362.0" MaxVersionTested="10.0.19041.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="x-generate"/>
+  </Resources>
+
+  <Applications>
+    <Application Id="App"
+      Executable="$targetnametoken$.exe"
+      EntryPoint="$targetentrypoint$">
+      <uap:VisualElements
+        DisplayName="Audio Device Switcher"
+        Description="AudioDeviceSwitcher makes it easy to switch the default audio device used for both playback and recording. It supports custom hotkeys and also provides commands to easily interact with other software."
+        BackgroundColor="transparent"
+        Square150x150Logo="Images\Square150x150Logo.png"
+        Square44x44Logo="Images\Square44x44Logo.png">
+        <uap:DefaultTile/>
+      </uap:VisualElements>
+
+      <Extensions>
+        <uap5:Extension
+          Category="windows.appExecutionAlias"
+          Executable="AudioDeviceSwitcher\AudioDeviceSwitcher.exe"
+          EntryPoint="Windows.FullTrustApplication">
+          <uap5:AppExecutionAlias>
+            <uap8:ExecutionAlias Alias="AudioDeviceSwitcher.exe" />
+          </uap5:AppExecutionAlias>
+        </uap5:Extension>
+        <desktop:Extension
+          Category="windows.startupTask"
+          Executable="AudioDeviceSwitcher\AudioDeviceSwitcher.exe"
+          EntryPoint="Windows.FullTrustApplication">
+          <desktop:StartupTask
+            TaskId="Startup"
+            Enabled="true"
+            DisplayName="AudioDeviceSwitcher" />
+        </desktop:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>
