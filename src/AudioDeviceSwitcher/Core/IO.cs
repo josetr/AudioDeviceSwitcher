@@ -6,7 +6,8 @@ namespace AudioDeviceSwitcher
 
     public interface IO
     {
-        Task ShowMessageAsync(string title, string message);
-        Task<string?> GetMessageAsync(string message, string defaultValue = "");
+        public Task ShowMessageAsync(string title, string message);
+        public Task<string?> GetMessageAsync(string message, string defaultValue = "");
+        public Task ShowNotification(string message);
     }
 }

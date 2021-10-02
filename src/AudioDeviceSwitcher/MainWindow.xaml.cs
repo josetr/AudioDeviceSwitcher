@@ -5,12 +5,15 @@ namespace AudioDeviceSwitcher
     using System;
     using System.Linq;
     using System.Threading.Tasks;
+    using System.Xml.Linq;
     using AudioDeviceSwitcher.Interop;
+    using Microsoft.Toolkit.Uwp.Notifications;
     using Microsoft.UI.Xaml;
     using Microsoft.UI.Xaml.Controls;
     using Microsoft.UI.Xaml.Media;
     using Windows.Devices.Enumeration;
     using Windows.System;
+    using Windows.UI.Notifications;
 
     public enum NotifyCommandId
     {
@@ -38,6 +41,7 @@ namespace AudioDeviceSwitcher
             NavView.SelectedItem = NavView.MenuItems.FirstOrDefault();
             NavView.Content = frame;
             this.audioSwitcher = audioSwitcher;
+            audioSwitcher.IO = this;
         }
 
         public UIElement TitleBar => CustomTitleBar;
@@ -85,6 +89,29 @@ namespace AudioDeviceSwitcher
             return null;
         }
 
+        public Task ShowNotification(string message)
+        {
+            ToastNotificationManager.History.Clear();
+
+            new ToastContentBuilder()
+                 .AddText(message)
+                 .AddAudio(null, silent: true)
+                 .Show();
+
+            return Task.CompletedTask;
+        }
+
+        public Task ShowErrorNotification(string message)
+        {
+            ToastNotificationManager.History.Clear();
+
+            new ToastContentBuilder()
+               .AddText($"❌ {message}")
+               .Show();
+
+            return Task.CompletedTask;
+        }
+
         protected override bool OnClose()
         {
             if (!audioSwitcher.Settings.RunInBackground)
@@ -109,7 +136,7 @@ namespace AudioDeviceSwitcher
             }
             catch (Exception e)
             {
-                await this.ShowErrorAsync(e.Message);
+                await ShowErrorNotification(e.Message);
             }
         }
 

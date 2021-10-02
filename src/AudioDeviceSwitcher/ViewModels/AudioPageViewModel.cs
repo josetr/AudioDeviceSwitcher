@@ -97,7 +97,7 @@ namespace AudioDeviceSwitcher
         {
             try
             {
-                await AudioSwitcher.ToggleAsync(DeviceClass, SelectedDevices.Select(x => x.Id), Settings.SwitchCommunicationDevice);
+                await _audioSwitcher.ToggleAsync(DeviceClass, SelectedDevices.Select(x => x.Id), Settings.SwitchCommunicationDevice);
             }
             catch (Exception e)
             {

@@ -8,5 +8,6 @@ namespace AudioDeviceSwitcher
     {
         public Task ShowMessageAsync(string title, string message) => Task.CompletedTask;
         public Task<string?> GetMessageAsync(string message, string defaultValue) => Task.FromResult<string?>(string.Empty);
+        public Task ShowNotification(string message) => Task.CompletedTask;
     }
 }

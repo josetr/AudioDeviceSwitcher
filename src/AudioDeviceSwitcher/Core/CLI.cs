@@ -42,7 +42,7 @@ namespace AudioDeviceSwitcher
 
             var settings = Settings.Load();
             var audioSwitcher = new AudioSwitcher(settings);
-            await AudioSwitcher.ToggleAsync(type, uniqueDeviceIds, settings.SwitchCommunicationDevice, devices);
+            await audioSwitcher.ToggleAsync(type, uniqueDeviceIds, settings.SwitchCommunicationDevice, devices);
         }
 
         private static string GetId(string devicePart, DeviceInformationCollection devices)

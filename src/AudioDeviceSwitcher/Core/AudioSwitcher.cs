@@ -5,6 +5,7 @@ namespace AudioDeviceSwitcher
     using System;
     using System.Collections.Generic;
     using System.Linq;
+    using System.Text;
     using System.Threading.Tasks;
     using AudioDeviceSwitcher.Interop;
     using Windows.Devices.Enumeration;
@@ -19,6 +20,7 @@ namespace AudioDeviceSwitcher
         public List<Command> Commands { get; set; } = new();
         public Settings Settings { get; set; }
         public IntPtr Hwnd { get; set; }
+        public IO? IO { get; internal set; }
 
         public Command AddCommand(string name, DeviceClass deviceClass)
         {
@@ -128,42 +130,64 @@ namespace AudioDeviceSwitcher
         {
             var command = Commands.FirstOrDefault(x => x.Hotkey == hotkey);
             if (command == null)
-                throw new AudioSwitcherException($"Couldn't find any command with hotkey {hotkey}");
+                throw new AudioSwitcherException($"Command with hotkey '{hotkey}' doesn't exist.");
 
             await ToggleAsync(command.DeviceClass, command.Devices, Settings.SwitchCommunicationDevice);
         }
 
-        public static async Task ToggleAsync(DeviceClass deviceClass, IEnumerable<string> devices, bool com, IEnumerable<DeviceInformation>? availableDevices = null)
+        public async Task ToggleAsync(DeviceClass deviceClass, IEnumerable<string> devices, bool com, IEnumerable<DeviceInformation>? availableDevices = null)
         {
             if (availableDevices == null)
-                availableDevices = await DeviceInformation.FindAllAsync(deviceClass);
+                availableDevices = await DeviceInformation.FindAllAsync(AudioUtil.GetInterfaceGuid(deviceClass));
 
             if (!devices.Any())
-                throw new AudioSwitcherException("Please select one or more devices");
+                throw new AudioSwitcherException("Please select one or more devices.");
 
-            devices = devices.Where(id => availableDevices.Any(x => x.Id == id));
+            var skipped = new StringBuilder();
+            var defaultAudioDevice = AudioUtil.GetDefaultAudioId(deviceClass);
 
-            var device = GetNext(devices.ToArray(), AudioUtil.GetDefaultAudioId(deviceClass));
-            if (!string.IsNullOrWhiteSpace(device))
+            foreach (var deviceId in GetNext(devices.ToArray(), defaultAudioDevice))
             {
-                AudioUtil.SetDefaultDevice(device);
+                if (string.IsNullOrWhiteSpace(deviceId))
+                    continue;
+
+                var device = availableDevices.FirstOrDefault(x => x.Id == deviceId);
+                var deviceName = device?.Name ?? deviceId;
+
+                if (!AudioUtil.SetDefaultDevice(deviceId))
+                {
+                    skipped.AppendLine($"⚠️ Skipped '{deviceName} because it may not exist.");
+                    continue;
+                }
+
+                if (AudioUtil.GetDefaultAudioId(deviceClass) != deviceId)
+                {
+                    skipped.AppendLine($"⚠️ Skipped '{deviceName}' because it may be disconnected.");
+                    continue;
+                }
 
                 if (com)
-                    AudioUtil.SetDefaultDevice(device, ERole.eCommunications);
+                    AudioUtil.SetDefaultDevice(deviceId, ERole.eCommunications);
+
+                if (deviceId == defaultAudioDevice && skipped.Length > 0)
+                    IO?.ShowNotification(skipped.ToString());
+                else
+                    IO?.ShowNotification($"✔️ {deviceName}");
+
+                return;
             }
         }
 
-        public static string GetNext(string[] devices, string currentDeviceId)
+        public static IEnumerable<string> GetNext(string[] devices, string currentDeviceId)
         {
             for (int i = 0; i < devices.Length; ++i)
             {
                 var device = devices[i];
-
-                if (device == currentDeviceId && i + 1 < devices.Length)
-                    return devices[i + 1];
+                if (device == currentDeviceId)
+                    return devices.TakeLast(devices.Length - i - 1).Concat(devices.Take(i + 1));
             }
 
-            return devices.Any() ? devices.First() : string.Empty;
+            return devices;
         }
     }
 }

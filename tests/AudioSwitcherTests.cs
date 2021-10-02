@@ -190,6 +190,11 @@ namespace AudioDeviceSwitcher.Tests
             {
                 return Task.FromResult(Queue.Dequeue());
             }
+
+            public Task ShowNotification(string message)
+            {
+                return Task.CompletedTask;
+            }
         }
     }
 }

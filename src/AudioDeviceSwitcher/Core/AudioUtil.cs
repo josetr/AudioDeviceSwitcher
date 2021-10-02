@@ -17,10 +17,18 @@ namespace AudioDeviceSwitcher
             return $"System.Devices.InterfaceClassGuid:=\"{interfaceGuid}\"";
         }
 
-        public static void SetDefaultDevice(string id, ERole role = ERole.eConsole)
+        public static bool SetDefaultDevice(string id, ERole role = ERole.eConsole)
         {
             using var policyConfig = new ComObject<IPolicyConfig, PolicyConfig>();
-            NoThrow(() => policyConfig.Value.SetDefaultEndpoint(GetAudioId(id), role));
+
+            try
+            {
+                return policyConfig.Value.SetDefaultEndpoint(GetAudioId(id), role) == 0;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         public static void SetVisibility(string id, bool visible)
