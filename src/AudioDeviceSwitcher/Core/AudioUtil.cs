@@ -3,6 +3,7 @@
 namespace AudioDeviceSwitcher
 {
     using System;
+    using System.Runtime.InteropServices;
     using System.Text.RegularExpressions;
     using AudioDeviceSwitcher.Interop;
     using Windows.Devices.Enumeration;
@@ -39,13 +40,20 @@ namespace AudioDeviceSwitcher
 
         public static bool IsDisabled(string id, bool def = false)
         {
-            using var enumeratorOwner = new ComObject<IMMDeviceEnumerator, MMDeviceEnumerator>();
-            enumeratorOwner.Value.GetDevice(GetAudioId(id), out var device);
-            using var deviceOwner = new ComObject<IMMDevice>(device);
-            if (device == null)
+            try
+            {
+                using var enumeratorOwner = new ComObject<IMMDeviceEnumerator, MMDeviceEnumerator>();
+                enumeratorOwner.Value.GetDevice(GetAudioId(id), out var device);
+                using var deviceOwner = new ComObject<IMMDevice>(device);
+                if (device == null)
+                    return def;
+                device.GetState(out var state);
+                return state == MMDeviceState.Disabled;
+            }
+            catch (Exception)
+            {
                 return def;
-            device.GetState(out var state);
-            return state == MMDeviceState.Disabled;
+            }
         }
 
         public static bool IsDefault(string id, DeviceClass type, AudioDeviceRole role = AudioDeviceRole.Default)
