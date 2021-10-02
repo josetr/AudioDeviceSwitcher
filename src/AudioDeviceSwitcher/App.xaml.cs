@@ -5,7 +5,9 @@ namespace AudioDeviceSwitcher
     using System;
     using System.Linq;
     using Microsoft.UI.Xaml;
+    using Windows.ApplicationModel;
     using static PInvoke.User32;
+    using Activation = Windows.ApplicationModel.Activation;
 
     public partial class App : Application
     {
@@ -59,7 +61,16 @@ namespace AudioDeviceSwitcher
             }
 
             _window = new MainWindow(AudioSwitcher);
-            _window.Activate();
+
+            var background = AppInstance.GetActivatedEventArgs() is Activation.IStartupTaskActivatedEventArgs task
+                && task?.TaskId == "Startup"
+                && AudioSwitcher.Settings.RunAtStartupMinimized
+                && AudioSwitcher.Settings.RunInBackground;
+
+            if (background)
+                _window.RunInBackround();
+            else
+                _window.Activate();
         }
     }
 }

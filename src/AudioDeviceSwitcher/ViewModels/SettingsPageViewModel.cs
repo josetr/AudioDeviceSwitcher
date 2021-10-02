@@ -18,6 +18,7 @@ namespace AudioDeviceSwitcher
         private readonly AudioSwitcher audioSwitcher;
         [Property] private bool _runInBackground;
         [Property] private bool _runAtStartup;
+        [Property] private bool _runAtStartupMinimized;
         [Property] private bool _switchCommunicationDevice;
         [Property] private bool _showDisabledDevices;
         [Property] private bool _darkTheme;
@@ -38,6 +39,7 @@ namespace AudioDeviceSwitcher
             audioSwitcher.Load();
             RunAtStartup = Settings.RunAtStartup = await IsStartupTaskEnabledAsync();
             RunInBackground = Settings.RunInBackground;
+            RunAtStartupMinimized = Settings.RunAtStartupMinimized;
             SwitchCommunicationDevice = Settings.SwitchCommunicationDevice;
             ShowDisabledDevices = Settings.ShowDisabledDevices;
             DarkTheme = Settings.DarkTheme;
@@ -60,6 +62,13 @@ namespace AudioDeviceSwitcher
                 await IO.ShowErrorAsync("Please go to Task Manager > Startup to enable it. Windows only allows you to enable it from the same place where you previously disabled it.");
             else
                 Settings.Save();
+        }
+
+        [Command]
+        public void SetRunAtStartupMinimizedAsync()
+        {
+            Settings.RunAtStartupMinimized = RunAtStartupMinimized;
+            Settings.Save();
         }
 
         [Command]

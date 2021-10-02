@@ -56,6 +56,12 @@ namespace AudioDeviceSwitcher
             SendMessage(Hwnd, WindowMessage.WM_SETICON, (IntPtr)ICON_BIG, LoadIcon(name, big: true));
         }
 
+        public void RunInBackround()
+        {
+            Hide();
+            CreateNotifyIcon();
+        }
+
         public static void BroadcastRestore()
         {
             PostMessage(HWND_BROADCAST, restoreMsgId, IntPtr.Zero, IntPtr.Zero);

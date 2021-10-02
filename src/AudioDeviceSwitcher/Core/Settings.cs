@@ -13,6 +13,7 @@ namespace AudioDeviceSwitcher
 
         public Command[] Commands { get; set; } = Array.Empty<Command>();
         public bool RunAtStartup { get; set; } = true;
+        public bool RunAtStartupMinimized { get; set; } = true;
         public bool RunInBackground { get; set; } = true;
         public bool ShowDisabledDevices { get; set; } = false;
         public bool SwitchCommunicationDevice { get; set; } = false;
