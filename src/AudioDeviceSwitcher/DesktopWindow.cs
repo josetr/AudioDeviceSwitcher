@@ -103,7 +103,10 @@ namespace AudioDeviceSwitcher
                     OnTaskBarCreated();
 
                 if (msg == restoreMsgId)
+                {
                     Restore();
+                    SetForegroundWindow(hWnd);
+                }
 
                 return User32.CallWindowProc(_oldWndProc, hWnd, (int)msg, wParam, lParam);
             }
