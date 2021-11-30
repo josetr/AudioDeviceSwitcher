@@ -7,7 +7,7 @@ Project("{C7167F0D-BC9F-4E6E-AFE1-012C56B48DB5}") = "AudioDeviceSwitcher (Packag
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AudioDeviceSwitcher", "src\AudioDeviceSwitcher\AudioDeviceSwitcher.csproj", "{8FF5FA0F-33B9-4DBD-8B04-BC4DF1B8DC85}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AudioDeviceSwitcher.Tests", "Tests\AudioDeviceSwitcher.Tests.csproj", "{5EB86BA1-70E8-4B00-A192-10F75F86199C}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AudioDeviceSwitcher.Tests", "test\AudioDeviceSwitcher.Tests.csproj", "{5EB86BA1-70E8-4B00-A192-10F75F86199C}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{A55C6339-7764-4CAE-9C38-85F2287794D7}"
 	ProjectSection(SolutionItems) = preProject

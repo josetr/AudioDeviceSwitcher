@@ -59,7 +59,7 @@ function Restore {
 }
 
 function Test {
-	msbuild tests/AudioDeviceSwitcher.Tests.csproj -v:m -nologo -p:Configuration=$configuration -p:Platform=$platform
+	msbuild test/AudioDeviceSwitcher.Tests.csproj -v:m -nologo -p:Configuration=$configuration -p:Platform=$platform
 	dotnet test bin\**\AudioDeviceSwitcher.Tests.dll
 }
 
