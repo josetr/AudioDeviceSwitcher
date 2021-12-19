@@ -150,7 +150,7 @@ namespace AudioDeviceSwitcher.Tests
                 await page.ToggleDeviceVisibilityAsync(device, sync: true);
                 Assert.Equal(count, page.FilteredDevices.Count());
                 Assert.Contains(device, page.FilteredDevices);
-                
+
                 page.ShowDisabledDevices();
                 Assert.DoesNotContain(device, page.FilteredDevices);
             }
