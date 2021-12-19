@@ -17,6 +17,7 @@ namespace AudioDeviceSwitcher
 
     public enum NotifyCommandId
     {
+        None,
         Exit,
         Community,
         Settings,
