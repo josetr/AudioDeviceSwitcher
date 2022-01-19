@@ -249,10 +249,16 @@ namespace AudioDeviceSwitcher
                 var cmd = _audioSwitcher.Commands.FirstOrDefault(x => x.Hotkey == hotkey);
                 if (cmd != null && cmd.Name != SelectedCommand?.Name)
                 {
-                    await IO.ShowErrorAsync($"'{hotkey}' is already in use by command '{cmd.Name}'");
-                    return;
+                    if (cmd.DeviceClass == DeviceClass)
+                    {
+                        await IO.ShowErrorAsync($"'{hotkey}' is already in use by command '{cmd.Name}'");
+                        return;
+                    }
                 }
             }
+
+            if (SelectedCommand == null)
+                return;
 
             SelectedCommand.Hotkey = Hotkey = hotkey;
             SaveSelectedCommand();

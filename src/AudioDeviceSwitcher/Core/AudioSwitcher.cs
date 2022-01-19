@@ -20,7 +20,7 @@ namespace AudioDeviceSwitcher
         public List<Command> Commands { get; set; } = new();
         public Settings Settings { get; set; }
         public IntPtr Hwnd { get; set; }
-        public IO? IO { get; internal set; }
+        public IO IO { get; internal set; } = new NullIO();
 
         public Command AddCommand(string name, DeviceClass deviceClass)
         {
@@ -128,17 +128,31 @@ namespace AudioDeviceSwitcher
 
         public async Task OnHotkeyAsync(Hotkey hotkey)
         {
-            var command = Commands.FirstOrDefault(x => x.Hotkey == hotkey);
-            if (command == null)
+            var commands = Commands.Where(x => x.Hotkey == hotkey).OrderBy(x => x.DeviceClass);
+            if (!commands.Any())
                 throw new AudioSwitcherException($"Command with hotkey '{hotkey}' doesn't exist.");
 
-            await ToggleAsync(command.DeviceClass, command.Devices, Settings.SwitchCommunicationDevice);
+            var messages = new List<string>();
+            Func<string, Task> output = message =>
+            {
+                messages.Add(message);
+                return Task.CompletedTask;
+            };
+
+            foreach (var command in commands)
+                await ToggleAsync(command.DeviceClass, command.Devices, Settings.SwitchCommunicationDevice, null, output);
+
+            if (messages.Count > 0)
+                await IO.ShowNotification(string.Join("\n", messages));
         }
 
-        public async Task ToggleAsync(DeviceClass deviceClass, IEnumerable<string> devices, bool com, IEnumerable<DeviceInformation>? availableDevices = null)
+        public async Task ToggleAsync(DeviceClass deviceClass, IEnumerable<string> devices, bool com, IEnumerable<DeviceInformation>? availableDevices = null, Func<string, Task>? output = null)
         {
             if (availableDevices == null)
                 availableDevices = await DeviceInformation.FindAllAsync(AudioUtil.GetInterfaceGuid(deviceClass));
+
+            if (output == null)
+                output = msg => IO.ShowNotification(msg);
 
             if (!devices.Any())
                 throw new AudioSwitcherException("Please select one or more devices.");
@@ -170,9 +184,9 @@ namespace AudioDeviceSwitcher
                     AudioUtil.SetDefaultDevice(deviceId, ERole.eCommunications);
 
                 if (deviceId == defaultAudioDevice && skipped.Length > 0)
-                    IO?.ShowNotification(skipped.ToString());
+                    await output(skipped.ToString());
                 else
-                    IO?.ShowNotification($"✔️ {deviceName}");
+                    await output($"✔️ {deviceName}");
 
                 return;
             }
