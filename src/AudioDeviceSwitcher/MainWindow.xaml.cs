@@ -3,6 +3,7 @@
 namespace AudioDeviceSwitcher
 {
     using System;
+    using System.Collections.Generic;
     using System.Linq;
     using System.Threading.Tasks;
     using System.Xml.Linq;
@@ -22,6 +23,7 @@ namespace AudioDeviceSwitcher
         Community,
         Settings,
         Open,
+        Audio,
     }
 
     public sealed partial class MainWindow : DesktopWindow, IO
@@ -29,6 +31,7 @@ namespace AudioDeviceSwitcher
         private const string IconPath = "AudioSwitch.ico";
         private readonly AudioSwitcher audioSwitcher;
         private Frame frame = new Frame();
+        private List<string> audioRenderList = new();
 
         public MainWindow(AudioSwitcher audioSwitcher)
         {
@@ -141,7 +144,7 @@ namespace AudioDeviceSwitcher
             }
         }
 
-        protected override void OnShellNotifyIconMessage(PInvoke.User32.WindowMessage id)
+        protected override async void OnShellNotifyIconMessage(PInvoke.User32.WindowMessage id)
         {
             switch (id)
             {
@@ -149,17 +152,36 @@ namespace AudioDeviceSwitcher
                     ExecuteCommand(NotifyCommandId.Open);
                     break;
                 case PInvoke.User32.WindowMessage.WM_RBUTTONUP:
-                    OpenNotifyMenu();
+                    await OpenNotifyMenuTask();
                     break;
             }
         }
 
-        private void OpenNotifyMenu()
+        private async Task OpenNotifyMenuTask()
         {
             PInvoke.User32.SetForegroundWindow(Hwnd);
             var menu = User32.CreatePopupMenu();
+            var devices = (await DeviceInformation.FindAllAsync(AudioUtil.GetInterfaceGuid(DeviceClass.AudioRender))).ToArray();
+            audioRenderList.Clear();
+
+            if (devices.Length > 0)
+            {
+                foreach (var device in devices)
+                {
+                    if (AudioUtil.IsDisabled(device.Id))
+                        continue;
+
+                    var isDefault = AudioUtil.IsDefault(device.Id, DeviceClass.AudioRender);
+                    var flags = PInvoke.User32.MenuItemFlags.MF_STRING;
+                    flags |= isDefault ? PInvoke.User32.MenuItemFlags.MF_CHECKED : PInvoke.User32.MenuItemFlags.MF_UNCHECKED;
+                    PInvoke.User32.AppendMenu(menu, flags, (IntPtr)NotifyCommandId.Audio + audioRenderList.Count, device.Name);
+                    audioRenderList.Add(device.Id);
+                }
+
+                PInvoke.User32.AppendMenu(menu, PInvoke.User32.MenuItemFlags.MF_SEPARATOR, default, default);
+            }
+
             PInvoke.User32.AppendMenu(menu, PInvoke.User32.MenuItemFlags.MF_STRING, (IntPtr)NotifyCommandId.Settings, "&Settings");
-            PInvoke.User32.AppendMenu(menu, PInvoke.User32.MenuItemFlags.MF_SEPARATOR, default, default);
             PInvoke.User32.AppendMenu(menu, PInvoke.User32.MenuItemFlags.MF_STRING, (IntPtr)NotifyCommandId.Community, "&Community");
             PInvoke.User32.AppendMenu(menu, PInvoke.User32.MenuItemFlags.MF_STRING, (IntPtr)NotifyCommandId.Open, "&Open");
             PInvoke.User32.AppendMenu(menu, PInvoke.User32.MenuItemFlags.MF_STRING, (IntPtr)NotifyCommandId.Exit, "&Exit");
@@ -185,6 +207,12 @@ namespace AudioDeviceSwitcher
                 case NotifyCommandId.Exit:
                     Close();
                     return;
+            }
+
+            if (command >= NotifyCommandId.Audio)
+            {
+                var index = command - NotifyCommandId.Audio;
+                await audioSwitcher.ToggleAsync(DeviceClass.AudioRender, new[] { audioRenderList[index] }, audioSwitcher.Settings.SwitchCommunicationDevice, null, _ => Task.CompletedTask);
             }
         }
 
