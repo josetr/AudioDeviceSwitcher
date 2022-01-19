@@ -1,6 +1,7 @@
 # Audio Device Switcher 
 
-[![CI](https://github.com/josetr/AudioDeviceSwitcher/actions/workflows/main.yaml/badge.svg)](https://github.com/josetr/AudioDeviceSwitcher/actions)
+[![CI](https://github.com/josetr/AudioDeviceSwitcher/actions/workflows/main.yaml/badge.svg)](https://github.com/josetr/AudioDeviceSwitcher/actions) [![CI](https://img.shields.io/badge/Download-Microsoft%20Store-blue)](https://www.microsoft.com/store/apps/9n71nh5h6t7k)
+
 
 Audio Device Switcher is a Windows 10 app that makes it easy to quickly switch your default playback device as well as your recording device using hotkeys.
 
