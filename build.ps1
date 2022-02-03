@@ -30,6 +30,9 @@ function Install-Audio-Devices {
 	$zip = "$root/VB-Cable.zip"
 	$instances = 2
 
+	Set-Service -Name "Audiosrv" -StartupType Automatic
+    Start-Service Audiosrv
+
 	New-Item -ItemType Directory -Force -Path $installDir
 	Invoke-WebRequest $url -OutFile $zip
 	Expand-Archive -LiteralPath $zip -DestinationPath $installDir
