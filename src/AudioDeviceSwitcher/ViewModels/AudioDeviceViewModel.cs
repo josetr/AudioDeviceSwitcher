@@ -1,87 +1,86 @@
 ﻿// Copyright (c) 2021 Jose Torres. All rights reserved. Licensed under the Apache License, Version 2.0. See LICENSE.md file in the project root for full license information.
 
-namespace AudioDeviceSwitcher
+namespace AudioDeviceSwitcher;
+
+using System;
+using System.Reflection;
+using System.Runtime.InteropServices;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
+using Microsoft.UI.Xaml.Media.Imaging;
+using MvvmGen;
+using Windows.Devices.Enumeration;
+using Windows.Media.Devices;
+
+[ViewModel]
+public sealed partial class AudioDeviceViewModel
 {
-    using System;
-    using System.Reflection;
-    using System.Runtime.InteropServices;
-    using System.Text.RegularExpressions;
-    using System.Threading.Tasks;
-    using Microsoft.UI.Xaml.Media.Imaging;
-    using MvvmGen;
-    using Windows.Devices.Enumeration;
-    using Windows.Media.Devices;
+    [Property] private string _id;
+    [Property] private string _fullName;
+    [Property] private BitmapImage _img;
+    [Property] private bool _isDefault;
+    [Property] private bool _isDefaultCommunication;
+    [Property] private bool _isEnabled;
 
-    [ViewModel]
-    public sealed partial class AudioDeviceViewModel
+    [PropertyInvalidate(nameof(IsEnabled))]
+    public bool IsDisabled => !IsEnabled;
+
+    [PropertyInvalidate(nameof(FullName))]
+    public string Name
     {
-        [Property] private string _id;
-        [Property] private string _fullName;
-        [Property] private BitmapImage _img;
-        [Property] private bool _isDefault;
-        [Property] private bool _isDefaultCommunication;
-        [Property] private bool _isEnabled;
-
-        [PropertyInvalidate(nameof(IsEnabled))]
-        public bool IsDisabled => !IsEnabled;
-
-        [PropertyInvalidate(nameof(FullName))]
-        public string Name
+        get
         {
-            get
-            {
-                var name = Regex.Match(FullName, @"(.+) \((.+)\)").Groups[1].Value;
-                return name.Length > 0 ? name : FullName;
-            }
+            var name = Regex.Match(FullName, @"(.+) \((.+)\)").Groups[1].Value;
+            return name.Length > 0 ? name : FullName;
         }
+    }
 
-        [PropertyInvalidate(nameof(FullName))]
-        public string DeviceName => Regex.Match(FullName, @"(.+) \((.+)\)").Groups[2].Value;
+    [PropertyInvalidate(nameof(FullName))]
+    public string DeviceName => Regex.Match(FullName, @"(.+) \((.+)\)").Groups[2].Value;
 
-        public static AudioDeviceViewModel Create(DeviceInformation deviceInfo, DeviceClass deviceClass)
+    public static AudioDeviceViewModel Create(DeviceInformation deviceInfo, DeviceClass deviceClass)
+    {
+        return new AudioDeviceViewModel
         {
-            return new AudioDeviceViewModel
-            {
-                FullName = deviceInfo.Name,
-                Id = deviceInfo.Id,
-                IsEnabled = deviceInfo.IsEnabled,
-                IsDefault = AudioUtil.IsDefault(deviceInfo.Id, deviceClass),
-                IsDefaultCommunication = AudioUtil.IsDefault(deviceInfo.Id, deviceClass, AudioDeviceRole.Communications),
-            };
-        }
+            FullName = deviceInfo.Name,
+            Id = deviceInfo.Id,
+            IsEnabled = deviceInfo.IsEnabled,
+            IsDefault = AudioUtil.IsDefault(deviceInfo.Id, deviceClass),
+            IsDefaultCommunication = AudioUtil.IsDefault(deviceInfo.Id, deviceClass, AudioDeviceRole.Communications),
+        };
+    }
 
-        public async Task LoadImageAsync(DeviceInformation deviceInfo)
+    public async Task LoadImageAsync(DeviceInformation deviceInfo)
+    {
+        try
         {
-            try
-            {
-                var img = new BitmapImage();
-                var thumbnail = await deviceInfo.GetThumbnailAsync();
-                await img.SetSourceAsync(thumbnail);
-                Img = img;
-            }
-            catch
-            {
-                return;
-            }
+            var img = new BitmapImage();
+            var thumbnail = await deviceInfo.GetThumbnailAsync();
+            await img.SetSourceAsync(thumbnail);
+            Img = img;
         }
+        catch
+        {
+            return;
+        }
+    }
 
-        public void Update(DeviceInformationUpdate deviceInfo)
+    public void Update(DeviceInformationUpdate deviceInfo)
+    {
+        foreach (var prop in deviceInfo.Properties)
         {
-            foreach (var prop in deviceInfo.Properties)
-            {
-                if (prop.Key == "System.ItemNameDisplay")
-                    FullName = (string)prop.Value;
-                else if (prop.Key == "System.Devices.InterfaceEnabled")
-                    IsEnabled = (bool)prop.Value;
-            }
+            if (prop.Key == "System.ItemNameDisplay")
+                FullName = (string)prop.Value;
+            else if (prop.Key == "System.Devices.InterfaceEnabled")
+                IsEnabled = (bool)prop.Value;
         }
+    }
 
-        public void UpdateDefault(AudioDeviceRole role, string id)
-        {
-            if (role == AudioDeviceRole.Default)
-                IsDefault = id == Id;
-            else if (role == AudioDeviceRole.Communications)
-                IsDefaultCommunication = id == Id;
-        }
+    public void UpdateDefault(AudioDeviceRole role, string id)
+    {
+        if (role == AudioDeviceRole.Default)
+            IsDefault = id == Id;
+        else if (role == AudioDeviceRole.Communications)
+            IsDefaultCommunication = id == Id;
     }
 }

@@ -1,54 +1,53 @@
 ﻿// Copyright (c) 2021 Jose Torres. All rights reserved. Licensed under the Apache License, Version 2.0. See LICENSE.md file in the project root for full license information.
 
-namespace AudioDeviceSwitcher
+namespace AudioDeviceSwitcher;
+
+using System;
+using System.Text.Json;
+
+public class Settings
 {
-    using System;
-    using System.Text.Json;
+    public static string Repository { get; } = "https://github.com/josetr/AudioDeviceSwitcher";
+    public static string Discord { get; } = "https://discord.gg/RZtgA6P4XP";
+    public static string Title { get; } = "Audio Device Switcher";
 
-    public class Settings
+    public Command[] Commands { get; set; } = Array.Empty<Command>();
+    public bool RunAtStartup { get; set; } = true;
+    public bool RunAtStartupMinimized { get; set; } = true;
+    public bool RunInBackground { get; set; } = true;
+    public bool ShowDisabledDevices { get; set; } = false;
+    public bool SwitchCommunicationDevice { get; set; } = false;
+    public bool DarkTheme { get; set; } = true;
+
+    public static Settings Load()
     {
-        public static string Repository { get; } = "https://github.com/josetr/AudioDeviceSwitcher";
-        public static string Discord { get; } = "https://discord.gg/RZtgA6P4XP";
-        public static string Title { get; } = "Audio Device Switcher";
+        if (!IsWindowsStorageAvailable())
+            return new();
 
-        public Command[] Commands { get; set; } = Array.Empty<Command>();
-        public bool RunAtStartup { get; set; } = true;
-        public bool RunAtStartupMinimized { get; set; } = true;
-        public bool RunInBackground { get; set; } = true;
-        public bool ShowDisabledDevices { get; set; } = false;
-        public bool SwitchCommunicationDevice { get; set; } = false;
-        public bool DarkTheme { get; set; } = true;
+        var localSettings = Windows.Storage.ApplicationData.Current.LocalSettings;
+        var content = localSettings.Values["settings"]?.ToString();
+        return string.IsNullOrWhiteSpace(content) ? new() : (JsonSerializer.Deserialize<Settings>(content) ?? new());
+    }
 
-        public static Settings Load()
+    public void Save()
+    {
+        if (!IsWindowsStorageAvailable())
+            return;
+
+        var localSettings = Windows.Storage.ApplicationData.Current.LocalSettings;
+        localSettings.Values["settings"] = JsonSerializer.Serialize(this);
+    }
+
+    private static bool IsWindowsStorageAvailable()
+    {
+        try
         {
-            if (!IsWindowsStorageAvailable())
-                return new();
-
-            var localSettings = Windows.Storage.ApplicationData.Current.LocalSettings;
-            var content = localSettings.Values["settings"]?.ToString();
-            return string.IsNullOrWhiteSpace(content) ? new() : (JsonSerializer.Deserialize<Settings>(content) ?? new());
+            return Windows.Storage.ApplicationData.Current != null;
+        }
+        catch
+        {
         }
 
-        public void Save()
-        {
-            if (!IsWindowsStorageAvailable())
-                return;
-
-            var localSettings = Windows.Storage.ApplicationData.Current.LocalSettings;
-            localSettings.Values["settings"] = JsonSerializer.Serialize(this);
-        }
-
-        private static bool IsWindowsStorageAvailable()
-        {
-            try
-            {
-                return Windows.Storage.ApplicationData.Current != null;
-            }
-            catch
-            {
-            }
-
-            return false;
-        }
+        return false;
     }
 }

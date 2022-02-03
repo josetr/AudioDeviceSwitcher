@@ -1,86 +1,85 @@
 ﻿// Copyright (c) 2021 Jose Torres. All rights reserved. Licensed under the Apache License, Version 2.0. See LICENSE.md file in the project root for full license information.
 
-namespace AudioDeviceSwitcher
+namespace AudioDeviceSwitcher;
+
+using System;
+using System.Runtime.InteropServices;
+using System.Text.RegularExpressions;
+using AudioDeviceSwitcher.Interop;
+using Windows.Devices.Enumeration;
+using Windows.Media.Devices;
+
+public class AudioUtil
 {
-    using System;
-    using System.Runtime.InteropServices;
-    using System.Text.RegularExpressions;
-    using AudioDeviceSwitcher.Interop;
-    using Windows.Devices.Enumeration;
-    using Windows.Media.Devices;
-
-    public class AudioUtil
+    public static string GetInterfaceGuid(DeviceClass type)
     {
-        public static string GetInterfaceGuid(DeviceClass type)
+        var selector = type == DeviceClass.AudioRender ? MediaDevice.GetAudioRenderSelector() : MediaDevice.GetAudioCaptureSelector();
+        var interfaceGuid = Regex.Match(selector, "{.*}").Value;
+        return $"System.Devices.InterfaceClassGuid:=\"{interfaceGuid}\"";
+    }
+
+    public static bool SetDefaultDevice(string id, ERole role = ERole.eConsole)
+    {
+        using var policyConfig = new ComObject<IPolicyConfig, PolicyConfig>();
+
+        try
         {
-            var selector = type == DeviceClass.AudioRender ? MediaDevice.GetAudioRenderSelector() : MediaDevice.GetAudioCaptureSelector();
-            var interfaceGuid = Regex.Match(selector, "{.*}").Value;
-            return $"System.Devices.InterfaceClassGuid:=\"{interfaceGuid}\"";
+            return policyConfig.Value.SetDefaultEndpoint(GetAudioId(id), role) == 0;
         }
-
-        public static bool SetDefaultDevice(string id, ERole role = ERole.eConsole)
+        catch
         {
-            using var policyConfig = new ComObject<IPolicyConfig, PolicyConfig>();
-
-            try
-            {
-                return policyConfig.Value.SetDefaultEndpoint(GetAudioId(id), role) == 0;
-            }
-            catch
-            {
-                return false;
-            }
+            return false;
         }
+    }
 
-        public static void SetVisibility(string id, bool visible)
-        {
-            using var policyConfig = new ComObject<IPolicyConfig, PolicyConfig>();
-            NoThrow(() => policyConfig.Value.SetEndpointVisibility(GetAudioId(id), visible ? 1 : 0));
-        }
+    public static void SetVisibility(string id, bool visible)
+    {
+        using var policyConfig = new ComObject<IPolicyConfig, PolicyConfig>();
+        NoThrow(() => policyConfig.Value.SetEndpointVisibility(GetAudioId(id), visible ? 1 : 0));
+    }
 
-        public static bool IsDisabled(string id, bool def = false)
+    public static bool IsDisabled(string id, bool def = false)
+    {
+        try
         {
-            try
-            {
-                using var enumeratorOwner = new ComObject<IMMDeviceEnumerator, MMDeviceEnumerator>();
-                enumeratorOwner.Value.GetDevice(GetAudioId(id), out var device);
-                using var deviceOwner = new ComObject<IMMDevice>(device);
-                if (device == null)
-                    return def;
-                device.GetState(out var state);
-                return state == MMDeviceState.Disabled;
-            }
-            catch (Exception)
-            {
+            using var enumeratorOwner = new ComObject<IMMDeviceEnumerator, MMDeviceEnumerator>();
+            enumeratorOwner.Value.GetDevice(GetAudioId(id), out var device);
+            using var deviceOwner = new ComObject<IMMDevice>(device);
+            if (device == null)
                 return def;
-            }
+            device.GetState(out var state);
+            return state == MMDeviceState.Disabled;
         }
-
-        public static bool IsDefault(string id, DeviceClass type, AudioDeviceRole role = AudioDeviceRole.Default)
+        catch (Exception)
         {
-            return GetDefaultAudioId(type, role) == id;
+            return def;
         }
+    }
 
-        public static string GetDefaultAudioId(DeviceClass type, AudioDeviceRole role = AudioDeviceRole.Default)
+    public static bool IsDefault(string id, DeviceClass type, AudioDeviceRole role = AudioDeviceRole.Default)
+    {
+        return GetDefaultAudioId(type, role) == id;
+    }
+
+    public static string GetDefaultAudioId(DeviceClass type, AudioDeviceRole role = AudioDeviceRole.Default)
+    {
+        if (type == DeviceClass.AudioRender)
+            return MediaDevice.GetDefaultAudioRenderId(role);
+        else if (type == DeviceClass.AudioCapture)
+            return MediaDevice.GetDefaultAudioCaptureId(role);
+        return string.Empty;
+    }
+
+    public static string GetAudioId(string id) => Regex.Match(id, @"{.*}\.{[a-zA-Z0-9-]*}").Value;
+
+    private static void NoThrow(Action action)
+    {
+        try
         {
-            if (type == DeviceClass.AudioRender)
-                return MediaDevice.GetDefaultAudioRenderId(role);
-            else if (type == DeviceClass.AudioCapture)
-                return MediaDevice.GetDefaultAudioCaptureId(role);
-            return string.Empty;
+            action();
         }
-
-        public static string GetAudioId(string id) => Regex.Match(id, @"{.*}\.{[a-zA-Z0-9-]*}").Value;
-
-        private static void NoThrow(Action action)
+        catch
         {
-            try
-            {
-                action();
-            }
-            catch
-            {
-            }
         }
     }
 }
