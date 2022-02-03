@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.31515.178
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.32112.339
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{C7167F0D-BC9F-4E6E-AFE1-012C56B48DB5}") = "AudioDeviceSwitcher (Package)", "src\AudioDeviceSwitcher (Package)\AudioDeviceSwitcher (Package).wapproj", "{5F2BBA54-26B8-4B2F-AB0D-C7EDDA1A7E58}"
 EndProject
