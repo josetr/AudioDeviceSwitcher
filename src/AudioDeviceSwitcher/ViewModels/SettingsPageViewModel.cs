@@ -5,9 +5,7 @@ namespace AudioDeviceSwitcher;
 
 using System;
 using System.Threading.Tasks;
-using Microsoft.UI;
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Media;
 using MvvmGen;
 using Windows.ApplicationModel;
 
