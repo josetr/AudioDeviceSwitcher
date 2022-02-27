@@ -19,6 +19,10 @@ jobs:
  
       - name: Add msbuild to PATH
         uses: microsoft/setup-msbuild@v1.0.2
+         
+      - uses: GuillaumeFalourd/setup-windows10-sdk-action@v1
+        with:
+          sdk-version: 18362
 
       - name: Create Certificate
         env:
