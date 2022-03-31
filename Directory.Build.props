@@ -10,6 +10,7 @@
     <TargetPlatformVersion>$(WinPlatformVersion)</TargetPlatformVersion>
     <TargetPlatformMinVersion>$(WinPlatformVersion)</TargetPlatformMinVersion>
     <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <PropertyGroup>

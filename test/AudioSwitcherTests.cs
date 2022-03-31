@@ -139,7 +139,7 @@ public class AudioSwitcherTests
         using var page = new AudioPageViewModel(new(new() { ShowDisabledDevices = true }), DeviceClass.AudioRender) { IO = io };
         await page.LoadDevices();
         var count = page.FilteredDevices.Count();
-        var device = page.Devices.FirstOrDefault(x => !x.IsDisabled);
+        var device = page.Devices.First(x => !x.IsDisabled);
 
         try
         {
@@ -182,9 +182,9 @@ public class AudioSwitcherTests
             return Task.CompletedTask;
         }
 
-        public Task<string> GetMessageAsync(string message, string defValue)
+        public Task<string?> GetMessageAsync(string message, string defValue)
         {
-            return Task.FromResult(Queue.Dequeue());
+            return Task.FromResult<string?>(Queue.Dequeue());
         }
 
         public Task ShowNotification(string message)

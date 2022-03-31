@@ -7,7 +7,6 @@
     <RuntimeIdentifier>win10-$(Platform)</RuntimeIdentifier>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <UseWinUI>true</UseWinUI>
-    <Nullable>enable</Nullable>
     <PublishSingleFile Condition="'$(AppPublishSingleFile)' == 'true'">true</PublishSingleFile>
     <PublishTrimmed>false</PublishTrimmed> <!-- https://github.com/microsoft/CsWinRT/issues/373 -->
     <SelfContained>true</SelfContained>
