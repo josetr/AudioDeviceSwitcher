@@ -2,7 +2,6 @@
 
 namespace AudioDeviceSwitcher;
 
-using System;
 using MvvmGen;
 
 [ViewModel]

@@ -2,7 +2,6 @@
 
 namespace AudioDeviceSwitcher;
 
-using System;
 using Microsoft.UI.Xaml.Data;
 
 public class DisabledOpacityConverter : IValueConverter

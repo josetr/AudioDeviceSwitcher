@@ -2,9 +2,7 @@
 
 namespace AudioDeviceSwitcher;
 
-using System;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using Microsoft.UI.Xaml.Media.Imaging;
 using MvvmGen;
 using Windows.Devices.Enumeration;

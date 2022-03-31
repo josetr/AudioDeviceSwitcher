@@ -4,7 +4,6 @@
 
 namespace AudioDeviceSwitcher.Interop;
 
-using System;
 using System.Runtime.InteropServices;
 using Windows.System;
 

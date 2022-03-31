@@ -2,8 +2,6 @@
 
 namespace AudioDeviceSwitcher;
 
-using System;
-
 public sealed class CLIException : AudioSwitcherException
 {
     public CLIException(string message)

@@ -2,8 +2,6 @@
 
 namespace AudioDeviceSwitcher;
 
-using System;
-using System.Collections.Generic;
 using Windows.System;
 
 public record Hotkey

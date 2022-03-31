@@ -9,6 +9,7 @@
     <TargetFramework>net6.0-windows$(WinPlatformVersion)</TargetFramework>
     <TargetPlatformVersion>$(WinPlatformVersion)</TargetPlatformVersion>
     <TargetPlatformMinVersion>$(WinPlatformVersion)</TargetPlatformMinVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
   <PropertyGroup>

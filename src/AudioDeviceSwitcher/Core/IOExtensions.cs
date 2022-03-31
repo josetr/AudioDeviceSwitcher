@@ -2,8 +2,6 @@
 
 namespace AudioDeviceSwitcher;
 
-using System.Threading.Tasks;
-
 public static class IOExtensions
 {
     public static Task ShowErrorAsync(this IO io, string message)

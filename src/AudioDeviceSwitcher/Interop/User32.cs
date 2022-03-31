@@ -3,7 +3,6 @@
 
 namespace AudioDeviceSwitcher.Interop;
 
-using System;
 using System.Runtime.InteropServices;
 
 public partial class User32

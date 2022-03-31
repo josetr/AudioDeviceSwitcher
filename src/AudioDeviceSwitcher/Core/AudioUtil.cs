@@ -2,8 +2,6 @@
 
 namespace AudioDeviceSwitcher;
 
-using System;
-using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using AudioDeviceSwitcher.Interop;
 using Windows.Devices.Enumeration;

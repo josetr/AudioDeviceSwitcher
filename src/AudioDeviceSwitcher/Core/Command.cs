@@ -2,7 +2,6 @@
 
 namespace AudioDeviceSwitcher;
 
-using System;
 using Windows.Devices.Enumeration;
 
 public sealed class Command

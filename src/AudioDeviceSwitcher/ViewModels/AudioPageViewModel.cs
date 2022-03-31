@@ -2,14 +2,9 @@
 
 namespace AudioDeviceSwitcher;
 
-using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
-using System.Linq;
 using System.Runtime.InteropServices.WindowsRuntime;
-using System.Threading;
-using System.Threading.Tasks;
 using AudioDeviceSwitcher.Interop;
 using MvvmGen;
 using Windows.ApplicationModel.DataTransfer;

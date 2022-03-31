@@ -2,8 +2,6 @@
 
 namespace AudioDeviceSwitcher;
 
-using System;
-using System.Threading.Tasks;
 using MvvmGen;
 
 [ViewModel]

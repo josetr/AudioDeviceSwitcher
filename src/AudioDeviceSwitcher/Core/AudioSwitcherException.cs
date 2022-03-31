@@ -2,8 +2,6 @@
 
 namespace AudioDeviceSwitcher;
 
-using System;
-
 public class AudioSwitcherException : Exception
 {
     public AudioSwitcherException(string? message)

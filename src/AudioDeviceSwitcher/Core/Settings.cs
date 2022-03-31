@@ -2,7 +2,6 @@
 
 namespace AudioDeviceSwitcher;
 
-using System;
 using System.Text.Json;
 
 public class Settings

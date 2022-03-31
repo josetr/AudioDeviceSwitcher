@@ -5,7 +5,6 @@
 
 namespace AudioDeviceSwitcher.Interop;
 
-using System;
 using System.Runtime.InteropServices;
 
 public sealed class Shell32

@@ -2,8 +2,6 @@
 
 namespace AudioDeviceSwitcher;
 
-using System.Threading.Tasks;
-
 public class NullIO : IO
 {
     public Task ShowMessageAsync(string title, string message) => Task.CompletedTask;
