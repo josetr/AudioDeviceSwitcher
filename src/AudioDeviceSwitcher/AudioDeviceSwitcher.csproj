@@ -29,7 +29,7 @@
 
   <ItemGroup>
     <Manifest Include="$(ApplicationManifest)" />
-    <AdditionalFiles Include="stylecop.json" />
+    <AdditionalFiles Include="../../stylecop.json" />
     <None Update="AudioSwitch.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
