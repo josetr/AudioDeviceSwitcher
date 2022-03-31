@@ -19,10 +19,10 @@ public sealed partial class User32
     }
 
     [DllImport("user32.dll", SetLastError = true)]
-    public static extern bool RegisterHotKey(IntPtr hWnd, int id, Modifiers fsModifiers, VirtualKey vk);
+    public static extern bool RegisterHotKey(IntPtr hWnd, uint id, Modifiers fsModifiers, VirtualKey vk);
 
     [DllImport("user32.dll", SetLastError = true)]
-    public static extern bool UnregisterHotKey(IntPtr hWnd, int id);
+    public static extern bool UnregisterHotKey(IntPtr hWnd, uint id);
 
     public static Modifiers ToModifiers(VirtualKeyModifiers modifiers)
     {

@@ -60,7 +60,7 @@ public sealed class CLI
         if (matches.Count() > 1)
         {
             found = true;
-            matches = matches.Where(x => x.Id.GetHashCode() == id);
+            matches = matches.Where(x => x.Id.GetDjb2HashCode() == uid);
             if (matches.Count() > 1)
                 throw new CLIException("Found two devices with the same name. Please regenerate your command.");
         }
@@ -68,7 +68,7 @@ public sealed class CLI
         if (matches.Count() == 1)
             return matches.First().Id;
 
-        matches = devices.Where(x => x.Id.GetHashCode() == id);
+        matches = devices.Where(x => x.Id.GetDjb2HashCode() == uid);
         if (matches.Count() > 1)
         {
             found = true;

@@ -92,12 +92,12 @@ public sealed class AudioSwitcher
     public void RegisterCommandHotkey(Command command)
     {
         if (command.Hotkey != Hotkey.Empty)
-            User32.RegisterHotKey(Hwnd, command.Name.GetHashCode(), User32.ToModifiers(command.Hotkey.Modifiers), command.Hotkey.Key);
+            User32.RegisterHotKey(Hwnd, command.Name.GetDjb2HashCode(), User32.ToModifiers(command.Hotkey.Modifiers), command.Hotkey.Key);
     }
 
     public void UnregisterCommandHotkey(Command command)
     {
-        while (User32.UnregisterHotKey(Hwnd, command.Name.GetHashCode()))
+        while (User32.UnregisterHotKey(Hwnd, command.Name.GetDjb2HashCode()))
         {
         }
     }
@@ -118,7 +118,7 @@ public sealed class AudioSwitcher
 
         static string QN(Device name)
         {
-            return $"\"{name.Name} / {(uint)name.Id.GetHashCode()}\"";
+            return $"\"{name.Name} / {name.Id.GetDjb2HashCode()}\"";
         }
     }
 
