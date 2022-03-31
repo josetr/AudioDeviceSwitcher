@@ -420,7 +420,7 @@ public sealed partial class AudioPageViewModel : IDisposable
         }
     }
 
-    private class AudioDeviceWatcher : IDisposable
+    private sealed class AudioDeviceWatcher : IDisposable
     {
         private readonly SemaphoreSlim enumerationCompletedSignal = new SemaphoreSlim(0, 1);
         private readonly AudioPageViewModel model;

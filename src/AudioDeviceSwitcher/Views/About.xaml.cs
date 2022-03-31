@@ -5,7 +5,7 @@ namespace AudioDeviceSwitcher;
 using System.Diagnostics;
 using Microsoft.UI.Xaml.Controls;
 
-public partial class AboutPage : Page
+public sealed partial class AboutPage : Page
 {
     public AboutPage()
     {

@@ -4,7 +4,7 @@ namespace AudioDeviceSwitcher;
 
 using System.Text.Json;
 
-public class Settings
+public sealed class Settings
 {
     public static string Repository { get; } = "https://github.com/josetr/AudioDeviceSwitcher";
     public static string Discord { get; } = "https://discord.gg/RZtgA6P4XP";

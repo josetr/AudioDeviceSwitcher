@@ -5,7 +5,7 @@ namespace AudioDeviceSwitcher;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 
-public partial class SettingsPage : Page
+public sealed partial class SettingsPage : Page
 {
     public SettingsPage()
     {

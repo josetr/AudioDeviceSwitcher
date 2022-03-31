@@ -7,7 +7,7 @@ namespace AudioDeviceSwitcher
     using static PInvoke.User32;
     using Activation = Windows.ApplicationModel.Activation;
 
-    public partial class App : Application
+    public sealed partial class App : Application
     {
         public const string Id = "JoseTorres:AudioDeviceSwitcher";
 

@@ -7,7 +7,7 @@ using AudioDeviceSwitcher.Interop;
 using Windows.Devices.Enumeration;
 using Windows.Media.Devices;
 
-public class AudioUtil
+public sealed class AudioUtil
 {
     public static string GetInterfaceGuid(DeviceClass type)
     {

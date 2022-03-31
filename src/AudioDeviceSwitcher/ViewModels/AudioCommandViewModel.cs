@@ -5,7 +5,7 @@ namespace AudioDeviceSwitcher;
 using MvvmGen;
 
 [ViewModel]
-public partial class AudioCommandViewModel
+public sealed partial class AudioCommandViewModel
 {
     [Property] private string _name = string.Empty;
     [Property] private Hotkey _hotkey = new();

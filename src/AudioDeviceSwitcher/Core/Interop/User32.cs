@@ -7,7 +7,7 @@ namespace AudioDeviceSwitcher.Interop;
 using System.Runtime.InteropServices;
 using Windows.System;
 
-public partial class User32
+public sealed partial class User32
 {
     public enum Modifiers
     {

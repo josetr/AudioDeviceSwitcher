@@ -5,7 +5,7 @@ namespace AudioDeviceSwitcher.Interop;
 
 using System.Runtime.InteropServices;
 
-public partial class User32
+public sealed partial class User32
 {
     public const uint TPM_RIGHTALIGN = 0x0008;
     public const uint TPM_RETURNCMD = 0x0100;

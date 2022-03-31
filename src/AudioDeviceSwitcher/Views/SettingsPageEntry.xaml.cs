@@ -6,7 +6,7 @@ using System.Windows.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 
-public partial class SettingsPageEntry : UserControl
+public sealed partial class SettingsPageEntry : UserControl
 {
     public static readonly DependencyProperty TitleProperty = DependencyProperty.Register(nameof(Title), typeof(string), typeof(SettingsPageEntry), null);
     public static readonly DependencyProperty ReasonProperty = DependencyProperty.Register(nameof(Reason), typeof(string), typeof(SettingsPageEntry), null);

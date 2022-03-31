@@ -6,7 +6,7 @@ using System.Text;
 using AudioDeviceSwitcher.Interop;
 using Windows.Devices.Enumeration;
 
-public class AudioSwitcher
+public sealed class AudioSwitcher
 {
     public AudioSwitcher(Settings? settings = null)
     {

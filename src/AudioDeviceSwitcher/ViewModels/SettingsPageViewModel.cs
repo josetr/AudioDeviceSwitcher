@@ -8,7 +8,7 @@ using MvvmGen;
 using Windows.ApplicationModel;
 
 [ViewModel]
-public partial class SettingsPageViewModel
+public sealed partial class SettingsPageViewModel
 {
     private const string StartupTaskId = "Startup";
     private readonly AudioSwitcher audioSwitcher;

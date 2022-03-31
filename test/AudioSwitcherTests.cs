@@ -5,7 +5,7 @@ using Windows.Devices.Enumeration;
 using Windows.System;
 using Xunit;
 
-public class AudioSwitcherTests
+public sealed class AudioSwitcherTests
 {
     [InlineData(DeviceClass.AudioRender)]
     [InlineData(DeviceClass.AudioCapture)]
@@ -173,7 +173,7 @@ public class AudioSwitcherTests
 
     TestIO io = new();
 
-    class TestIO : IO
+    sealed class TestIO : IO
     {
         public Queue<string> Queue = new();
 

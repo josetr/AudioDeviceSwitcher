@@ -6,7 +6,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using Windows.Devices.Enumeration;
 
-public class CLI
+public sealed class CLI
 {
     public static async Task RunAsync(string cmd)
     {
