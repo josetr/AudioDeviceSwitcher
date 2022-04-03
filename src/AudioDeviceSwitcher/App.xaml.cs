@@ -1,74 +1,108 @@
 ﻿// Copyright (c) 2021 Jose Torres. All rights reserved. Licensed under the Apache License, Version 2.0. See LICENSE.md file in the project root for full license information.
 
-namespace AudioDeviceSwitcher
+namespace AudioDeviceSwitcher;
+
+using System;
+using System.Linq;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.UI.Xaml;
+using Windows.ApplicationModel;
+using Activation = Windows.ApplicationModel.Activation;
+using PInvoke;
+using Microsoft.UI.Xaml.Controls;
+
+public sealed partial class App : Application, IApp
 {
-    using Microsoft.UI.Xaml;
-    using Windows.ApplicationModel;
-    using static PInvoke.User32;
-    using Activation = Windows.ApplicationModel.Activation;
+    public const string Id = "JoseTorres:AudioDeviceSwitcher";
+    private static Kernel32.SafeObjectHandle? _mutex;
+    private static MainWindow? _window;
 
-    public sealed partial class App : Application
+    static App()
     {
-        public const string Id = "JoseTorres:AudioDeviceSwitcher";
+        Hotkey.KeyPrinter = key => key.ToVirtualKey().ToString();
+    }
 
-        private static Lazy<AudioSwitcher> _audioSwitcher = new Lazy<AudioSwitcher>(() => new(new()));
-        private static PInvoke.Kernel32.SafeObjectHandle? _mutex;
-        private static MainWindow? _window;
+    public App()
+    {
+        Services = ConfigureServices();
+        InitializeComponent();
+    }
 
-        public App()
+    public static AudioSwitcher AudioSwitcher { get; set; } = default!;
+    public static MainWindow Window => _window!;
+    public static ElementTheme Theme => AudioSwitcher.DarkTheme ? ElementTheme.Dark : ElementTheme.Light;
+    public IServiceProvider Services { get; }
+    public static new App Current => (App)Application.Current;
+
+    public void UpdateTheme()
+    {
+        if (_window?.Content is FrameworkElement e)
+            e.RequestedTheme = Theme;
+    }
+
+    protected override async void OnLaunched(LaunchActivatedEventArgs args)
+    {
+        var cmdArgs = Environment.GetCommandLineArgs();
+        if (cmdArgs.Length >= 2)
         {
-            InitializeComponent();
-        }
-
-        public static AudioSwitcher AudioSwitcher => _audioSwitcher.Value;
-        public static MainWindow? Window => _window;
-        public static ElementTheme Theme => AudioSwitcher.Settings.DarkTheme ? ElementTheme.Dark : ElementTheme.Light;
-
-        public static void UpdateTheme()
-        {
-            if (_window?.Content is FrameworkElement e)
-                e.RequestedTheme = Theme;
-        }
-
-        protected override void OnLaunched(LaunchActivatedEventArgs args)
-        {
-            var cmdArgs = Environment.GetCommandLineArgs();
-            if (cmdArgs.Length >= 2)
+            try
             {
-                try
-                {
-                    CLI.RunAsync(cmdArgs.Skip(1).ToArray()).GetAwaiter().GetResult();
-                }
-                catch (Exception e)
-                {
-                    MessageBox(IntPtr.Zero, e.Message, Settings.Title, MessageBoxOptions.MB_ICONERROR);
-                }
-
-                Exit();
-                return;
+                var storage = Services.GetRequiredService<IStateStorage>();
+                var audioManager = Services.GetRequiredService<IAudioManager>();
+                var cli = new CLI(audioManager, storage, new NoNotificationService());
+                await cli.RunAsync(cmdArgs.Skip(1).ToArray());
+            }
+            catch (Exception e)
+            {
+                User32.MessageBox(IntPtr.Zero, e.Message, AudioSwitcherState.Title, User32.MessageBoxOptions.MB_ICONERROR);
             }
 
-            _mutex = PInvoke.Kernel32.CreateMutex(IntPtr.Zero, false, Id);
-            if (_mutex == null ||
-                PInvoke.Kernel32.GetLastError() == PInvoke.Win32ErrorCode.ERROR_ALREADY_EXISTS ||
-                PInvoke.Kernel32.GetLastError() == PInvoke.Win32ErrorCode.ERROR_ACCESS_DENIED)
-            {
-                DesktopWindow.BroadcastRestore();
-                Exit();
-                return;
-            }
-
-            _window = new MainWindow(AudioSwitcher);
-
-            var background = AppInstance.GetActivatedEventArgs() is Activation.IStartupTaskActivatedEventArgs task
-                && task?.TaskId == "Startup"
-                && AudioSwitcher.Settings.RunAtStartupMinimized
-                && AudioSwitcher.Settings.RunInBackground;
-
-            if (background)
-                _window.RunInBackround();
-            else
-                _window.Activate();
+            Exit();
+            return;
         }
+
+        _mutex = Kernel32.CreateMutex(IntPtr.Zero, false, Id);
+        if (_mutex == null ||
+            Kernel32.GetLastError() == Win32ErrorCode.ERROR_ALREADY_EXISTS ||
+            Kernel32.GetLastError() == Win32ErrorCode.ERROR_ACCESS_DENIED)
+        {
+            DesktopWindow.BroadcastRestore();
+            Exit();
+            return;
+        }
+
+        _window = new MainWindow();
+
+        var background = AppInstance.GetActivatedEventArgs() is Activation.IStartupTaskActivatedEventArgs task
+            && task?.TaskId == AudioSwitcher.StartupTaskId
+            && AudioSwitcher.RunAtStartupMinimized
+            && AudioSwitcher.RunInBackground;
+
+        if (background)
+            _window.RunInBackround();
+        else
+            _window.Activate();
+    }
+
+    private static IServiceProvider ConfigureServices()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<IStartupTaskManager, WinStartupTaskManager>();
+        services.AddSingleton<IStateStorage, StateStorage>();
+        services.AddSingleton<IO, WinIO>();
+        services.AddSingleton(x => MainWindow.Instance?.DispatcherQueue ?? throw new ArgumentNullException());
+        services.AddSingleton<INotificationService, NotificationService>();
+        services.AddSingleton<IHotkeyManager>(x => new HotkeyManager(MainWindow.SharedHwnd));
+        services.AddSingleton<IAudioManager, AudioManager>();
+        services.AddSingleton<IDispatcher, WinDispatcher>();
+        services.AddSingleton<IClipboard, WinClipboard>();
+        services.AddSingleton<IApp>(App.Current);
+        services.AddSingleton<AudioSwitcher>();
+        services.AddSingleton<AudioEvents>();
+        services.AddSingleton<Frame>();
+        services.AddTransient<AudioDeviceWatcher>();
+        services.AddTransient<SettingsPageViewModel>();
+        services.AddTransient<AudioPageViewModel>();
+        return services.BuildServiceProvider();
     }
 }

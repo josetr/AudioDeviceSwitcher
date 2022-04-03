@@ -6,5 +6,5 @@ public interface IO
 {
     public Task ShowMessageAsync(string title, string message);
     public Task<string?> GetMessageAsync(string message, string defaultValue = "");
-    public Task ShowNotification(string message);
+    public Task ShowErrorAsync(string message) => ShowMessageAsync("Error", message);
 }

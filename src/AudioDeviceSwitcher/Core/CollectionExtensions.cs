@@ -4,7 +4,7 @@ namespace AudioDeviceSwitcher;
 
 using System.Collections.ObjectModel;
 
-public static class Extensions
+public static class CollectionExtensions
 {
     public static void Remove<T>(this Collection<T> collection, Func<T, bool> condition)
     {

@@ -2,8 +2,4 @@
 
 namespace AudioDeviceSwitcher;
 
-public static class IOExtensions
-{
-    public static Task ShowErrorAsync(this IO io, string message)
-        => io.ShowMessageAsync("Error", message);
-}
+public sealed record AudioDeviceChanges(bool? IsEnabled, string? FullName);

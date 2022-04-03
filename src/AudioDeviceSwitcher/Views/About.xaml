@@ -15,17 +15,17 @@
         <StackPanel Grid.Row="0" Spacing="5">
             <StackPanel Orientation="Horizontal">
                 <TextBlock FontSize="18" FontWeight="Bold">
-                    <Run Text="{x:Bind local:Settings.Title}" />
+                    <Run Text="{x:Bind local:AudioSwitcherState.Title}" />
                     <Run Text="{x:Bind Version}" />
                 </TextBlock>
             </StackPanel>
             <StackPanel Orientation="Horizontal" Spacing="5">
                 <TextBlock Text="Repository:" VerticalAlignment="Center" />
-                <HyperlinkButton NavigateUri="{x:Bind local:Settings.Repository}" Content="{x:Bind local:Settings.Repository}" />
+                <HyperlinkButton NavigateUri="{x:Bind local:AudioSwitcherState.Repository}" Content="{x:Bind local:AudioSwitcherState.Repository}" />
             </StackPanel>
             <StackPanel Orientation="Horizontal" Spacing="5">
                 <TextBlock Text="Discord:" VerticalAlignment="Center" />
-                <HyperlinkButton NavigateUri="{x:Bind local:Settings.Discord}" Content="{x:Bind local:Settings.Discord}" />
+                <HyperlinkButton NavigateUri="{x:Bind local:AudioSwitcherState.Discord}" Content="{x:Bind local:AudioSwitcherState.Discord}" />
             </StackPanel>
         </StackPanel>
         <TextBlock Grid.Row="1" Text="Copyright (C) 2021 Jose Torres" FontSize="15" HorizontalAlignment="Center" Padding="10" />

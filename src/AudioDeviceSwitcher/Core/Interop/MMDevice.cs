@@ -58,7 +58,7 @@ public sealed class PolicyConfig
 public unsafe interface IMMDevice
 {
     public HRESULT Activate(ref Guid id, uint dwClsCtx, IntPtr pActivationParams, [MarshalAs(UnmanagedType.IUnknown)] out object ppInterface);
-    public HRESULT OpenPropertyStore(uint stgmAccess, out object ppProperties);
+    public HRESULT OpenPropertyStore(uint stgmAccess, out IPropertyStore ppProperties);
     public HRESULT GetId([MarshalAs(UnmanagedType.LPWStr)] out string id);
     public HRESULT GetState(out MMDeviceState pdwState);
 };
@@ -84,4 +84,64 @@ public unsafe interface IMMDeviceEnumerator
 [Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")]
 public sealed class MMDeviceEnumerator
 {
+}
+
+[Guid("886d8eeb-8cf2-4446-8d02-cdba1dbdcf99")]
+[InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+public interface IPropertyStore
+{
+    int GetCount(out int cProps);
+    int GetAt(int property, out PropertyKey pkey);
+    int GetValue(ref PropertyKey key, out PropVariant pv);
+    int SetValue(ref PropertyKey key, ref PropVariant propvar);
+    int Commit();
+}
+
+public struct PropertyKey
+{
+    public Guid formatId;
+    public int propertyId;
+    public PropertyKey(Guid formatId, int propertyId)
+    {
+        this.formatId = formatId;
+        this.propertyId = propertyId;
+    }
+}
+
+[StructLayout(LayoutKind.Explicit)]
+public struct PropVariant
+{
+    [FieldOffset(0)] public short type;
+    [FieldOffset(8)] public IntPtr pointerValue;
+
+#pragma warning disable CS0618 // Type or member is obsolete
+    public T GetValueOrDefault<T>(T def = default)
+    {
+        if ((VarEnum)type == VarEnum.VT_EMPTY)
+            return def;
+        if ((VarEnum)type == VarEnum.VT_LPWSTR)
+            return (T)(object)Marshal.PtrToStringUni(pointerValue);
+        throw new NotImplementedException("Unsupported PropVariant: " + (VarEnum)type);
+    }
+#pragma warning restore CS0618 // Type or member is obsolete
+
+    public static void Clear(ref PropVariant ptr)
+    {
+        Ole32.PropVariantClear(ref ptr);
+    }
+}
+
+public static class MMDeviceConstants
+{
+    public static readonly PropertyKey KEY_Device_FriendlyName = new(new Guid(unchecked((int)0xa45c254e), unchecked((short)0xdf1c), 0x4efd, 0x80, 0x20, 0x67, 0xd1, 0x46, 0xa8, 0x50, 0xe0), 14);
+    public const uint DEVICE_STATEMASK_ALL = 0x0000000fu;
+    public const uint DEVICE_STATE_ACTIVE = 0x00000001;
+    public const uint DEVICE_STATE_DISABLED = 0x00000002;
+    public const uint DEVICE_STATE_NOTPRESENT = 0x00000004;
+    public const uint DEVICE_STATE_UNPLUGGED = 0x00000008;
+}
+
+public static class StorageConstants
+{
+    public const uint STGM_READ = 0x00000000u;
 }

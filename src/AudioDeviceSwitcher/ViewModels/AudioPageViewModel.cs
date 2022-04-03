@@ -5,215 +5,219 @@ namespace AudioDeviceSwitcher;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Runtime.InteropServices.WindowsRuntime;
-using AudioDeviceSwitcher.Interop;
 using MvvmGen;
-using Windows.ApplicationModel.DataTransfer;
 using Windows.Devices.Enumeration;
-using Windows.Media.Devices;
-using Windows.System;
 
 [ViewModel(GenerateConstructor = false)]
 public sealed partial class AudioPageViewModel : IDisposable
 {
-    [Property] private ObservableCollection<AudioDeviceViewModel> _devices = new() { };
-    [Property] private ObservableCollection<AudioDeviceViewModel> _filteredDevices = new() { };
-    [Property] private ObservableCollection<AudioCommandViewModel> _commands = new() { };
+    private readonly AudioEvents _events;
+    private readonly AudioDeviceWatcher _audioDeviceWatcher;
+    private readonly IO io;
+    private readonly IAudioManager _audioManager;
+    private readonly INotificationService _notificationService;
+    private readonly IDispatcher _dispatcher;
+    private readonly IClipboard _clipboard;
+    private readonly IApp _app;
+    private readonly AudioSwitcher _audioSwitcher;
+    private AudioDeviceClass _deviceClass = AudioDeviceClass.Render;
+    [Property] private ObservableCollection<AudioDeviceViewModel> _devices = new();
+    [Property] private ObservableCollection<AudioDeviceViewModel> _filteredDevices = new();
+    [Property] private ObservableCollection<AudioCommandViewModel> _commands = new();
     [Property] private string _command = string.Empty;
     [Property] private AudioCommandViewModel _selectedCommand = new();
     [Property] private Hotkey _hotkey = new();
     [Property] private int _hotkeySelectionStart;
+    [Property] private int _isExecuting = 1;
     private IList<object> _selectedDevices = new List<object>();
-    private AudioSwitcher _audioSwitcher;
-    private AudioDeviceWatcher _audioDeviceWatcher;
-    private bool _loading = false;
 
-    public AudioPageViewModel(AudioSwitcher? audioSwitcher = null, DeviceClass deviceClass = DeviceClass.AudioRender)
+    public AudioPageViewModel(
+        AudioSwitcher audioSwitcher,
+        AudioEvents events,
+        AudioDeviceWatcher watcher,
+        IAudioManager audioManager,
+        INotificationService notificationService,
+        IO iO,
+        IDispatcher dispatcherQueue,
+        IClipboard clipboard,
+        IApp app)
     {
-        _audioSwitcher = audioSwitcher ?? new();
-        _audioDeviceWatcher = new(this);
-        _devices.CollectionChanged += Devices_CollectionChanged;
-        DeviceClass = deviceClass;
+        _audioSwitcher = audioSwitcher;
+        _dispatcher = dispatcherQueue;
+        _clipboard = clipboard;
+        _app = app;
+        _audioManager = audioManager;
+        _notificationService = notificationService;
+        _audioDeviceWatcher = watcher;
+        _events = events;
+        io = iO;
         InitializeCommands();
     }
 
-    public DeviceClass DeviceClass { get; set; } = DeviceClass.AudioRender;
-    public Microsoft.UI.Dispatching.DispatcherQueue? DispatcherQueue { get; set; }
-    public IO IO { get; set; } = new NullIO();
-    public IEnumerable<AudioDeviceViewModel> SelectedDevices => _selectedDevices.Cast<AudioDeviceViewModel>();
+    private IEnumerable<AudioDeviceViewModel> SelectedDevices => _selectedDevices.Cast<AudioDeviceViewModel>();
 
-    private Settings Settings => _audioSwitcher.Settings;
-
-    public Task LoadDevices()
+    public async Task InitializeAsync(AudioDeviceClass deviceClass, bool watch = true, IList<object>? selectedDevices = null)
     {
-        using var loading = new LoadingBlock(this);
-        return _audioDeviceWatcher.Start();
+        _deviceClass = deviceClass;
+        _events.Events += AudioDeviceWatcher_Events;
+        _devices.CollectionChanged += Devices_CollectionChanged;
+        if (selectedDevices != null)
+            _selectedDevices = selectedDevices;
+
+        await _audioSwitcher.LoadAsync();
+
+        foreach (var command in _audioSwitcher.Commands
+            .Where(x => x.DeviceClass == deviceClass)
+            .Select(x => ToViewModel(x)))
+        {
+            Commands.Add(command);
+        }
+
+        if (watch)
+            await StartAudioWatcherAsync();
+
+        var selectedCommand = Commands.First();
+        SelectDevices(Devices.Where(x => selectedCommand.DeviceIds.Contains(x.Id)));
+        SelectedCommand = selectedCommand;
+        --IsExecuting;
     }
+
+    public Task StartAudioWatcherAsync() =>
+        _audioDeviceWatcher.StartAsync(_deviceClass);
 
     public void Dispose()
     {
+        _events.Events -= AudioDeviceWatcher_Events;
+        _devices.CollectionChanged -= Devices_CollectionChanged;
         _audioDeviceWatcher.Dispose();
-    }
-
-    public void LoadCommands()
-    {
-        using var loading = new LoadingBlock(this);
-
-        _audioSwitcher.Load();
-        Commands.Clear();
-
-        foreach (var command in _audioSwitcher.Commands.Where(x => x.DeviceClass == DeviceClass))
-            Commands.Add(ToViewModel(command));
-
-        SelectedCommand = Commands.FirstOrDefault();
-        _audioSwitcher.RegisterHotkeys();
     }
 
     public void SaveSelectedCommand()
     {
-        if (_loading)
-            return;
-
         var command = SelectedCommand;
-        if (command == null)
-            return;
-
         command.DeviceIds = SelectedDevices.Select(x => x.Id).ToArray();
-        var index = _audioSwitcher.Commands.FindIndex(x => x.Name == command.Name);
-        if (index < 0)
-            return;
-
-        _audioSwitcher.Commands[index] = ToModel(command);
-        _audioSwitcher.SaveSettings();
-        _audioSwitcher.RegisterHotkeys();
+        _audioSwitcher.SaveCommand(ToModel(command));
     }
 
-    [Command]
+    [Command(CanExecuteMethod = nameof(CanExecute))]
     public async Task ToggleAsync()
     {
         try
         {
-            await _audioSwitcher.ToggleAsync(DeviceClass, SelectedDevices.Select(x => x.Id), Settings.SwitchCommunicationDevice);
+            await _audioSwitcher.ToggleAsync(_deviceClass, SelectedDevices.Select(x => x.Id), _notificationService);
         }
         catch (Exception e)
         {
-            await IO.ShowErrorAsync(e.Message);
+            await io.ShowErrorAsync(e.Message);
         }
     }
 
-    [Command]
+    [Command(CanExecuteMethod = nameof(CanExecute))]
     public async Task NewAsync()
     {
-        var name = await IO.GetMessageAsync("Please enter a name");
-        if (name == null)
-            return;
-
         try
         {
-            var cmd = _audioSwitcher.AddCommand(name, DeviceClass);
+            var name = await io.GetMessageAsync("Please enter a name");
+            if (name == null)
+                return;
+
+            var cmd = _audioSwitcher.AddCommand(name.Trim(), _deviceClass);
             var command = new AudioCommandViewModel { Name = cmd.Name };
             Commands.Add(command);
             SelectedCommand = command;
         }
         catch (Exception e)
         {
-            await IO.ShowErrorAsync(e.Message);
+            await io.ShowErrorAsync(e.Message);
         }
     }
 
-    [Command]
+    [Command(CanExecuteMethod = nameof(CanExecute))]
     public async Task RenameAsync()
     {
-        var command = SelectedCommand;
-        if (command == null)
-            return;
-
-        var newName = await IO.GetMessageAsync("Please enter a new name", command.Name);
-        if (newName == null)
-            return;
-
         try
         {
-            _audioSwitcher.RenameCommand(command.Name, newName);
+            var command = SelectedCommand;
+            if (command == null)
+                return;
+
+            var newName = await io.GetMessageAsync("Please enter a new name", command.Name);
+            if (newName == null)
+                return;
+
+            _audioSwitcher.RenameCommand(command.Name, newName.Trim());
             command.Name = newName;
         }
         catch (Exception e)
         {
-            await IO.ShowErrorAsync(e.Message);
+            await io.ShowErrorAsync(e.Message);
         }
     }
 
-    [Command]
+    [Command(CanExecuteMethod = nameof(CanExecute))]
     public async Task DeleteAsync()
     {
-        var command = SelectedCommand;
-        if (command == null)
-            return;
-
         try
         {
-            _audioSwitcher.DeleteCommand(command.Name);
-
-            for (int i = 0; i < Commands.Count; ++i)
-            {
-                if (Commands[i] != command)
-                    continue;
-
-                Commands.Remove(command);
-                SelectedCommand = i < Commands.Count ? Commands[i] : Commands.LastOrDefault();
+            var command = SelectedCommand;
+            if (command == null)
                 return;
+
+            _audioSwitcher.DeleteCommand(command.Name);
+            var i = Commands.IndexOf(command);
+            if (i != -1)
+            {
+                SelectedCommand = i + 1 < Commands.Count ? Commands[i + 1] : Commands[i - 1];
+                Commands.RemoveAt(i);
             }
         }
         catch (Exception e)
         {
-            await IO.ShowErrorAsync(e.Message);
+            await io.ShowErrorAsync(e.Message);
         }
     }
 
-    [Command]
+    [Command(CanExecuteMethod = nameof(CanExecute))]
     public async Task CopyCommandToClipboardAsync()
     {
-        var cmd = GetCmd();
-        if (string.IsNullOrWhiteSpace(cmd))
+        if (!SelectedDevices.Any())
         {
-            await IO.ShowErrorAsync("Please select one or more devices");
+            await io.ShowErrorAsync("Please select one or more devices.");
             return;
         }
 
-        var content = new DataPackage();
-        content.SetText(cmd);
-        Clipboard.SetContent(content);
-        await IO.ShowMessageAsync("Success", $"The following command has been copied to your clipboard:\n\n{cmd}\n\nThis command can be executed from the command line or using your favorite software to run it.\n");
+        var cmd = GetCmd();
+        _clipboard.SetTextContent(cmd);
+
+        var message = $"The following command has been copied to your clipboard:\n\n{cmd}\n\n" +
+            "This command can be executed from the command line or using your favorite software to run it.\n";
+        await io.ShowMessageAsync("Success", message);
     }
 
     public async Task ToggleDeviceVisibilityAsync(AudioDeviceViewModel device, bool sync = false)
     {
         try
         {
-            var isDisabled = !AudioUtil.IsDisabled(device.Id);
+            var isDisabled = !_audioManager.IsDisabled(device.Id);
             var isEnabled = !isDisabled;
-            AudioUtil.SetVisibility(device.Id, isEnabled);
+            _audioManager.SetVisibility(device.Id, isEnabled);
             if (sync)
                 device.IsEnabled = isEnabled;
         }
         catch (Exception e)
         {
-            await IO.ShowErrorAsync(e.Message);
+            await io.ShowErrorAsync(e.Message);
         }
     }
 
-    public void SetAsDefault(string id)
+    public void SetAsDefault(string id, AudioDeviceRoleType role)
     {
-        AudioUtil.SetDefaultDevice(id);
-    }
-
-    public void SetAsDefaultCommunication(string id)
-    {
-        AudioUtil.SetDefaultDevice(id, ERole.eCommunications);
+        _audioManager.SetDefaultDevice(id, role);
     }
 
     public Command ToModel(AudioCommandViewModel cmd)
     {
-        return new(cmd.Name, DeviceClass)
+        return new(cmd.Name, _deviceClass)
         {
             Action = CommandType.Set,
             Hotkey = cmd.Hotkey,
@@ -231,87 +235,82 @@ public sealed partial class AudioPageViewModel : IDisposable
         };
     }
 
-    public async Task SetHotkeyAsync(Hotkey hotkey)
+    public async Task TrySetHotkeyAsync(Hotkey hotkey, bool persist = true)
     {
-        if (!hotkey.Modifiers.HasFlag(VirtualKeyModifiers.Control)
-            && !hotkey.Modifiers.HasFlag(VirtualKeyModifiers.Menu))
+        try
+        {
+            SetHotkey(hotkey, persist);
+        }
+        catch (Exception e)
+        {
+            await io.ShowErrorAsync(e.Message);
+        }
+    }
+
+    public void SetHotkey(Hotkey hotkey, bool persist = true)
+    {
+        if (!hotkey.Modifiers.HasFlag(KeyModifiers.Control)
+            && !hotkey.Modifiers.HasFlag(KeyModifiers.Menu))
         {
             hotkey = Hotkey.Empty;
         }
 
-        if (hotkey != Hotkey.Empty)
+        if (persist)
         {
-            var cmd = _audioSwitcher.Commands.FirstOrDefault(x => x.Hotkey == hotkey);
-            if (cmd != null && cmd.Name != SelectedCommand?.Name)
-            {
-                if (cmd.DeviceClass == DeviceClass)
-                {
-                    await IO.ShowErrorAsync($"'{hotkey}' is already in use by command '{cmd.Name}'");
-                    return;
-                }
-            }
+            var command = ToModel(SelectedCommand);
+            _audioSwitcher.ChangeCommandHotkey(command, hotkey);
         }
 
-        if (SelectedCommand == null)
-            return;
-
         SelectedCommand.Hotkey = Hotkey = hotkey;
-        SaveSelectedCommand();
-    }
-
-    public string GetCmd()
-    {
-        if (!SelectedDevices.Any())
-            return string.Empty;
-
-        return $"AudioDeviceSwitcher {GetCmdArgs()}";
     }
 
     public IEnumerable<(string Name, Action Action, bool IsChecked, bool IsEnabled)> GetDeviceMenuOptions(AudioDeviceViewModel? device)
     {
         if (device != null)
         {
-            yield return (AudioUtil.IsDisabled(device.Id) ? "Enable" : "Disable", async () => await ToggleDeviceVisibilityAsync(device), false, true);
-            yield return ("Set as Default Device", () => SetAsDefault(device.Id), false, device.IsEnabled && !device.IsDefault);
-            yield return ("Set as Default Communication Device", () => SetAsDefaultCommunication(device.Id), false, device.IsEnabled && !device.IsDefaultCommunication);
+            yield return (_audioManager.IsDisabled(device.Id) ? "Enable" : "Disable", async () => await ToggleDeviceVisibilityAsync(device), false, true);
+            yield return ("Set as Default Device", () => SetAsDefault(device.Id, AudioDeviceRoleType.Default), false, device.IsEnabled && !device.IsDefault);
+            yield return ("Set as Default Communication Device", () => SetAsDefault(device.Id, AudioDeviceRoleType.Communications), false, device.IsEnabled && !device.IsDefaultCommunication);
             yield return (string.Empty, () => { }, false, true);
         }
 
-        yield return ("Show Disabled Devices", ShowDisabledDevices, _audioSwitcher.Settings.ShowDisabledDevices, true);
+        yield return ("Show Disabled Devices", ToggleShowDisabledDevices, _audioSwitcher.ShowDisabledDevices, true);
     }
 
-    public void ShowDisabledDevices()
+    public void ToggleShowDisabledDevices()
     {
-        _audioSwitcher.Settings.ShowDisabledDevices = !_audioSwitcher.Settings.ShowDisabledDevices;
-        _audioSwitcher.Settings.Save();
+        _audioSwitcher.SetShowDisabledDevices(!_audioSwitcher.ShowDisabledDevices);
         UpdateFilteredDevices();
+    }
+
+    public string GetCmd()
+    {
+        return CLI.BuildCommand(_deviceClass, SelectedDevices.Select(x => new AudioDevice(x.Id, x.FullName)).ToArray());
     }
 
     public string GetCmdArgs()
     {
-        var devices = SelectedDevices.Select(x => new Device() { Name = x.FullName, Id = x.Id });
-        return AudioSwitcher.GetCommandArgs(DeviceClass, devices.ToArray());
+        return CLI.BuildCommandArgs(_deviceClass, SelectedDevices.Select(x => new AudioDevice(x.Id, x.FullName)).ToArray());
     }
 
     public async void CommandSelectionChanged()
     {
-        if (SelectedCommand != null)
-            await LoadCommand(SelectedCommand);
+        using var executing = new ExecutingBlock(this);
+        await LoadCommandAsync(SelectedCommand);
     }
 
-    public async Task LoadCommand(AudioCommandViewModel command)
+    public async Task LoadCommandAsync(AudioCommandViewModel command)
     {
-        using var loading = new LoadingBlock(this);
-        ClearSelection();
-
-        await SetHotkeyAsync(command.Hotkey);
         SelectDevices(Devices.Where(x => command.DeviceIds.Contains(x.Id)));
+        await TrySetHotkeyAsync(command.Hotkey, false);
         Command = GetCmd();
     }
 
-    [Command]
     public void DeviceSelectionChanged()
     {
+        if (!CanExecute())
+            return;
+
         Command = GetCmd();
         SaveSelectedCommand();
         UpdateFilteredDevices();
@@ -319,43 +318,20 @@ public sealed partial class AudioPageViewModel : IDisposable
 
     public void SelectDevices(IEnumerable<AudioDeviceViewModel> devices)
     {
-        foreach (var device in devices)
-        {
-            if (!_selectedDevices.Contains(device))
-                _selectedDevices.Add(device);
-        }
-    }
-
-    public void ClearSelection()
-    {
         _selectedDevices.Clear();
+
+        foreach (var device in devices.Where(x => !_selectedDevices.Contains(x)))
+            _selectedDevices.Add(device);
     }
 
-    internal void SwapSelectedDevicesContainer(IList<object> newContainer)
+    [CommandInvalidate(nameof(IsExecuting))]
+    public bool CanExecute()
     {
-        if (_selectedDevices == newContainer)
-            return;
-
-        using var loading = new LoadingBlock(this);
-        var devices = _selectedDevices;
-        _selectedDevices = newContainer;
-        SelectDevices(devices.Cast<AudioDeviceViewModel>());
+        return IsExecuting == 0;
     }
 
     private void Devices_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        if (e.OldItems != null)
-        {
-            foreach (AudioDeviceViewModel device in e.OldItems)
-                _selectedDevices.Remove(device);
-        }
-
-        if (e.NewItems != null)
-        {
-            if (SelectedCommand != null)
-                SelectDevices(e.NewItems.Cast<AudioDeviceViewModel>().Where(x => SelectedCommand.DeviceIds.Contains(x.Id)));
-        }
-
         UpdateFilteredDevices();
     }
 
@@ -363,28 +339,13 @@ public sealed partial class AudioPageViewModel : IDisposable
     {
         FilteredDevices.Remove(d => !Devices.Any(e => e.Id == d.Id));
 
-        bool Valid(AudioDeviceViewModel model)
-        {
-            return Settings.ShowDisabledDevices || model.IsEnabled || SelectedCommand.DeviceIds.Contains(model.Id);
-        }
-
-        var order = Devices.Where(x => Valid(x)).OrderByDescending(x => x.IsEnabled);
+        var orderedDevices = Devices.Where(x => Valid(x)).OrderByDescending(x => x.IsEnabled).ToArray();
 
         foreach (var device in Devices)
         {
             if (Valid(device))
             {
-                var index = 0;
-                foreach (var d in order)
-                {
-                    if (d == device)
-                        break;
-                    index++;
-                }
-
-                if (index > FilteredDevices.Count)
-                    index = FilteredDevices.Count;
-
+                var index = Math.Clamp(Array.IndexOf(orderedDevices, device), 0, FilteredDevices.Count);
                 if (!FilteredDevices.Contains(device))
                     FilteredDevices.Insert(index, device);
             }
@@ -394,141 +355,99 @@ public sealed partial class AudioPageViewModel : IDisposable
                     FilteredDevices.Remove(device);
             }
         }
-    }
 
-    private void TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueueHandler handler)
-    {
-        if (DispatcherQueue == null)
-            handler();
-        else
-            DispatcherQueue?.TryEnqueue(handler);
-    }
+        return;
 
-    private sealed class LoadingBlock : IDisposable
-    {
-        private AudioPageViewModel model;
-
-        public LoadingBlock(AudioPageViewModel model)
+        bool Valid(AudioDeviceViewModel model)
         {
-            this.model = model;
-            model._loading = true;
-        }
-
-        public void Dispose()
-        {
-            model._loading = false;
+            return _audioSwitcher.ShowDisabledDevices || model.IsEnabled || SelectedCommand.DeviceIds.Contains(model.Id);
         }
     }
 
-    private sealed class AudioDeviceWatcher : IDisposable
+    private void AudioDeviceWatcher_Events(object @event)
     {
-        private readonly SemaphoreSlim enumerationCompletedSignal = new SemaphoreSlim(0, 1);
-        private readonly AudioPageViewModel model;
-        private DeviceWatcher? deviceWatcher = null;
-        private bool started = false;
-
-        public AudioDeviceWatcher(AudioPageViewModel model)
+        async void Handler()
         {
-            this.model = model;
-        }
-
-        public DeviceClass DeviceClass => model.DeviceClass;
-        public ObservableCollection<AudioDeviceViewModel> Devices => model.Devices;
-
-        public Task Start()
-        {
-            if (started)
-                return Task.CompletedTask;
-
-            started = true;
-
-            if (DeviceClass == DeviceClass.AudioRender)
-                MediaDevice.DefaultAudioRenderDeviceChanged += MediaDevice_DefaultAudioRenderDeviceChanged;
-            else if (DeviceClass == DeviceClass.AudioCapture)
-                MediaDevice.DefaultAudioCaptureDeviceChanged += MediaDevice_DefaultAudioCaptureDeviceChanged;
-
-            if (deviceWatcher == null)
+            switch (@event)
             {
-                deviceWatcher = DeviceInformation.CreateWatcher(AudioUtil.GetInterfaceGuid(DeviceClass));
-                deviceWatcher.EnumerationCompleted += Watcher_EnumerationCompleted;
-                deviceWatcher.Added += Watcher_Added;
-                deviceWatcher.Removed += Watcher_Removed;
-                deviceWatcher.Updated += Watcher_Updated;
+                case DefaultAudioDeviceChanged defaultDeviceChanged:
+                    OnEvent(defaultDeviceChanged);
+                    break;
+                case AudioDeviceAdded deviceAdded:
+                    await OnEvent(deviceAdded);
+                    break;
+                case AudioDeviceUpdated deviceUpdated:
+                    OnEvent(deviceUpdated);
+                    break;
+                case AudioDeviceRemoved deviceRemoved:
+                    OnEvent(deviceRemoved);
+                    break;
             }
-
-            deviceWatcher.Start();
-            return enumerationCompletedSignal.WaitAsync();
         }
 
-        public void Stop()
+        _dispatcher.Enqueue(Handler);
+    }
+
+    private void OnEvent(DefaultAudioDeviceChanged e)
+    {
+        foreach (var deviceVm in Devices)
         {
-            if (!started)
-                return;
+            var role = e.Role;
 
-            started = false;
-            deviceWatcher?.Stop();
+            if (role == AudioDeviceRoleType.Default)
+                deviceVm.IsDefault = e.Id == deviceVm.Id;
+            else if (role == AudioDeviceRoleType.Communications)
+                deviceVm.IsDefaultCommunication = e.Id == deviceVm.Id;
+        }
+    }
 
-            if (DeviceClass == DeviceClass.AudioRender)
-                MediaDevice.DefaultAudioRenderDeviceChanged -= MediaDevice_DefaultAudioRenderDeviceChanged;
-            else if (DeviceClass == DeviceClass.AudioCapture)
-                MediaDevice.DefaultAudioCaptureDeviceChanged -= MediaDevice_DefaultAudioCaptureDeviceChanged;
+    private async Task OnEvent(AudioDeviceAdded e)
+    {
+        var device = e.Device;
+        if (Devices.Any(x => x.Id == device.Id))
+            return;
+
+        var deviceVm = AudioDeviceViewModel.Create(_audioManager, device, _deviceClass);
+        Devices.Add(deviceVm);
+        try
+        {
+            var deviceInfo = await DeviceInformation.CreateFromIdAsync(device.Id);
+            deviceVm.Img = await deviceInfo.GetThumbnailAsync();
+        }
+        catch
+        {
+        }
+    }
+
+    private void OnEvent(AudioDeviceUpdated e)
+    {
+        var changes = e.Changes;
+        var deviceVm = Devices.FirstOrDefault(x => x.Id == e.Id);
+        if (deviceVm != null)
+        {
+            deviceVm.Update(changes);
+            UpdateFilteredDevices();
+        }
+    }
+
+    private void OnEvent(AudioDeviceRemoved deviceRemoved)
+    {
+        Devices.Remove(x => x.Id == deviceRemoved.Id);
+    }
+
+    public sealed class ExecutingBlock : IDisposable
+    {
+        private readonly AudioPageViewModel model;
+
+        public ExecutingBlock(AudioPageViewModel model)
+        {
+            this.model = model;
+            ++model.IsExecuting;
         }
 
         public void Dispose()
         {
-            Stop();
-            deviceWatcher = null;
-        }
-
-        private void MediaDevice_DefaultAudioRenderDeviceChanged(object sender, DefaultAudioRenderDeviceChangedEventArgs args)
-        {
-            MediaDevice_DefaultAudioDeviceChanged(args.Role, args.Id);
-        }
-
-        private void MediaDevice_DefaultAudioCaptureDeviceChanged(object sender, DefaultAudioCaptureDeviceChangedEventArgs args)
-        {
-            MediaDevice_DefaultAudioDeviceChanged(args.Role, args.Id);
-        }
-
-        private void MediaDevice_DefaultAudioDeviceChanged(AudioDeviceRole role, string id)
-        {
-            model.TryEnqueue(() =>
-            {
-                foreach (var device in Devices)
-                    device.UpdateDefault(role, id);
-            });
-        }
-
-        private void Watcher_Added(DeviceWatcher sender, DeviceInformation args)
-        {
-            model.TryEnqueue(async () =>
-            {
-                if (Devices.Any(x => x.Id == args.Id))
-                    return;
-
-                var device = AudioDeviceViewModel.Create(args, DeviceClass);
-                Devices.Add(device);
-                await device.LoadImageAsync(args);
-            });
-        }
-
-        private void Watcher_Updated(DeviceWatcher sender, DeviceInformationUpdate args)
-        {
-            model.TryEnqueue(() =>
-            {
-                Devices.FirstOrDefault(x => x.Id == args.Id)?.Update(args);
-                model.UpdateFilteredDevices();
-            });
-        }
-
-        private void Watcher_Removed(DeviceWatcher sender, DeviceInformationUpdate args)
-        {
-            model.TryEnqueue(() => Devices.Remove(x => x.Id == args.Id));
-        }
-
-        private void Watcher_EnumerationCompleted(DeviceWatcher sender, object args)
-        {
-            model.TryEnqueue(() => enumerationCompletedSignal.Release());
+            --model.IsExecuting;
         }
     }
 }

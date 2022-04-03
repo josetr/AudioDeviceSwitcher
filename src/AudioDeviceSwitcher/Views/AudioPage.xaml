@@ -9,6 +9,7 @@
 
     <UserControl.Resources>
         <local:DisabledOpacityConverter x:Name="DisabledOpacityConverter" />
+        <local:DeviceThumbnailImgConverter x:Name="DeviceThumbnailImgConverter" />
         <MenuFlyout x:Name="MenuFlyoutContext" />
     </UserControl.Resources>
 
@@ -72,7 +73,7 @@
                                 <RowDefinition Height="*" />
                             </Grid.RowDefinitions>
                             <Grid.Background>
-                                <ImageBrush ImageSource="{x:Bind Img, Mode=OneWay}"  Opacity="{x:Bind IsDisabled, Mode=OneWay, Converter={StaticResource DisabledOpacityConverter}}"/>
+                                <ImageBrush ImageSource="{x:Bind Img, Mode=OneWay, Converter={StaticResource DeviceThumbnailImgConverter}}"  Opacity="{x:Bind IsDisabled, Mode=OneWay, Converter={StaticResource DisabledOpacityConverter}}"/>
                             </Grid.Background>
                             <StackPanel Grid.Row="1" Background="Green" CornerRadius="10" VerticalAlignment="Bottom" HorizontalAlignment="Right" Visibility="{x:Bind IsDefault, Mode=OneWay}" BorderBrush="White" BorderThickness="1">
                                 <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xF13E;" Width="18" Height="18" />

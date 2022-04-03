@@ -2,6 +2,7 @@
 
 namespace AudioDeviceSwitcher;
 
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 
@@ -9,14 +10,14 @@ public sealed partial class SettingsPage : Page
 {
     public SettingsPage()
     {
+        ViewModel = App.Current.Services.GetRequiredService<SettingsPageViewModel>();
         InitializeComponent();
     }
 
-    public SettingsPageViewModel? ViewModel { get; set; }
+    public SettingsPageViewModel ViewModel { get; }
 
     protected override async void OnNavigatedTo(NavigationEventArgs e)
     {
-        ViewModel = new(App.AudioSwitcher) { IO = (IO)e.Parameter };
-        await ViewModel.Load();
+        await ViewModel.LoadAsync();
     }
 }

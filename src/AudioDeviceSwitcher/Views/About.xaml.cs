@@ -13,5 +13,5 @@ public sealed partial class AboutPage : Page
         InitializeComponent();
     }
 
-    public string? Version { get; set; }
+    public string? Version { get; }
 }

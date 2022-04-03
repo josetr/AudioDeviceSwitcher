@@ -2,12 +2,13 @@
 
 namespace AudioDeviceSwitcher;
 
-using Windows.System;
-
-public record Hotkey
+public sealed record Hotkey
 {
-    public Hotkey(VirtualKeyModifiers modifiers, VirtualKey key)
+    public Hotkey(KeyModifiers modifiers, Key key)
     {
+        if (!Validate(modifiers, key))
+            throw new ArgumentOutOfRangeException(null, "Invalid hotkey combination.");
+
         Modifiers = modifiers;
         Key = key;
     }
@@ -16,20 +17,35 @@ public record Hotkey
     {
     }
 
+    public static Func<Key, string> KeyPrinter { get; set; } = key => key.ToString();
     public static Hotkey Empty { get; } = new();
-    public VirtualKeyModifiers Modifiers { get; set; }
-    public VirtualKey Key { get; set; }
+    public KeyModifiers Modifiers { get; init; } = default;
+    public Key Key { get; init; } = default;
+
+    public static bool Validate(KeyModifiers modifiers, Key key)
+    {
+        if ((modifiers, key) != default)
+        {
+            if (!modifiers.HasFlag(KeyModifiers.Control)
+                && !modifiers.HasFlag(KeyModifiers.Menu))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     public override string ToString()
     {
         var keys = new List<string>(4);
 
-        Span<VirtualKeyModifiers> mods = stackalloc VirtualKeyModifiers[4]
+        Span<KeyModifiers> mods = stackalloc KeyModifiers[4]
         {
-            VirtualKeyModifiers.Control,
-            VirtualKeyModifiers.Shift,
-            VirtualKeyModifiers.Menu,
-            VirtualKeyModifiers.Windows,
+            KeyModifiers.Control,
+            KeyModifiers.Shift,
+            KeyModifiers.Menu,
+            KeyModifiers.Windows,
         };
 
         foreach (var mod in mods)
@@ -38,25 +54,25 @@ public record Hotkey
                 keys.Add(GetPrettyModifier(mod));
         }
 
-        if (!Modifiers.HasFlag(VirtualKeyModifiers.Control) &&
-            !Modifiers.HasFlag(VirtualKeyModifiers.Menu))
+        if (!Modifiers.HasFlag(KeyModifiers.Control) &&
+            !Modifiers.HasFlag(KeyModifiers.Menu))
         {
             return string.Empty;
         }
 
-        keys.Add(Key.ToString());
+        keys.Add(KeyPrinter(Key));
         return string.Join(" + ", keys);
     }
 
-    private static string GetPrettyModifier(VirtualKeyModifiers modifier)
+    private static string GetPrettyModifier(KeyModifiers modifier)
     {
         return modifier switch
         {
-            VirtualKeyModifiers.Control => "Ctrl",
-            VirtualKeyModifiers.Shift => "Shift",
-            VirtualKeyModifiers.Menu => "Alt",
-            VirtualKeyModifiers.Windows => "Windows",
-            VirtualKeyModifiers.None => "None",
+            KeyModifiers.Control => "Ctrl",
+            KeyModifiers.Shift => "Shift",
+            KeyModifiers.Menu => "Alt",
+            KeyModifiers.Windows => "Windows",
+            KeyModifiers.None => "None",
             _ => throw new NotImplementedException(),
         };
     }

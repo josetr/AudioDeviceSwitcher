@@ -2,91 +2,161 @@
 
 namespace AudioDeviceSwitcher;
 
+using AudioDeviceSwitcher.Core.Application;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
-using Windows.Devices.Enumeration;
+using System.Threading.Tasks;
 
 public sealed class CLI
 {
-    public static async Task RunAsync(string cmd)
+    private readonly IAudioManager audioManager;
+    private readonly IStateStorage stateStorage;
+    private readonly INotificationService notificationService;
+
+    public CLI(IAudioManager audioManager, IStateStorage stateStorage, INotificationService notificationService)
     {
-        await RunAsync(GetArgs(cmd));
+        this.stateStorage = stateStorage;
+        this.audioManager = audioManager;
+        this.notificationService = notificationService;
     }
 
-    public static async Task RunAsync(string[] cmdArgs)
+    public async Task RunAsync(string cmd)
     {
-        var type = DeviceClass.AudioRender;
-        var deviceInputs = cmdArgs.Where(x =>
-        {
-            if (x == "-recording")
-            {
-                type = DeviceClass.AudioCapture;
-                return false;
-            }
+        await RunAsync(ParseArguments(cmd));
+    }
 
-            return x != "-playback";
-        }).ToArray();
+    public async Task RunAsync(string[] cmdArgs)
+    {
+        ParseArguments(cmdArgs, out var device, out var type);
 
-        if (!deviceInputs.Any())
+        if (!device.Any())
             throw new CLIException("Missing device name.");
 
-        var devices = await DeviceInformation.FindAllAsync(AudioUtil.GetInterfaceGuid(type));
-        var uniqueDeviceIds = new HashSet<string>();
-
-        foreach (var deviceInput in deviceInputs)
-            uniqueDeviceIds.Add(GetId(deviceInput, devices));
-
-        var settings = Settings.Load();
-        var audioSwitcher = new AudioSwitcher(settings);
-        await audioSwitcher.ToggleAsync(type, uniqueDeviceIds, settings.SwitchCommunicationDevice, devices);
+        var availableDevices = await audioManager.GetAllDevicesAsync(type);
+        var uniqueDeviceIds = new HashSet<string>(device.Select(x => GetDeviceId(x, availableDevices)));
+        var state = stateStorage.Load();
+        var toggler = new AudioSwitcherToggler(audioManager, notificationService);
+        await toggler.ToggleAsync(type, uniqueDeviceIds, state.SwitchCommunicationDevice);
     }
 
-    private static string GetId(string devicePart, DeviceInformationCollection devices)
+    public static string GetDeviceId(string devicePart, AudioDevice[] deviceList)
     {
-        var match = Regex.Match(devicePart, @"^(.*?)(?: / ?(\d+))?$");
+        var (name, uid) = DecodeName(devicePart);
+        var found = false;
+        var devices = deviceList.Where(x => x.Name == name);
+
+        if (devices.Count() > 1)
+        {
+            found = true;
+            devices = devices.Where(x => x.Id.GetDjb2HashCode() == uid);
+            if (devices.Count() > 1)
+                throw CreateError("Found two devices with the same name.");
+        }
+
+        if (devices.Count() == 1)
+            return devices.First().Id;
+
+        devices = deviceList.Where(x => x.Id.GetDjb2HashCode() == uid);
+        if (devices.Count() > 1)
+        {
+            found = true;
+            devices = devices.Where(x => x.Name == name);
+            if (devices.Count() > 1)
+                throw CreateError("Found two devices with the same name.");
+        }
+
+        if (devices.Count() == 1)
+            return devices.First().Id;
+
+        if (!found)
+            throw CreateError($"Device \"{name}\" doesn't exist.");
+
+        throw CreateError();
+
+        static CLIException CreateError(string? msg = null)
+        {
+            return new($"{(msg != null ? msg + " " : string.Empty)}Please regenerate your command.");
+        }
+    }
+
+    public static string BuildCommand(AudioDeviceClass deviceClass, AudioDevice[] devices)
+    {
+        if (!devices.Any())
+            return string.Empty;
+
+        return $"AudioDeviceSwitcher {BuildCommandArgs(deviceClass, devices)}";
+    }
+
+    public static string BuildCommandArgs(AudioDeviceClass deviceClass, AudioDevice[] devices)
+    {
+        if (devices.Count() >= 1)
+            return $"{string.Join(" ", devices.Select(x => EncodeName(x)))} -{EncodeClass(deviceClass)}";
+
+        return string.Empty;
+    }
+
+    public static string EncodeName(AudioDevice name)
+    {
+        return $"\"{name.Name} / {name.Id.GetDjb2HashCode()}\"";
+    }
+
+    public static (string Name, uint Uid) DecodeName(string text)
+    {
+        var match = Regex.Match(text, @"^(.+?)(?: / ?(\d+))?$");
         if (!match.Success)
             throw new CLIException("Invalid device name. Please regenerate your command.");
 
-        var name = match.Groups[1].Value;
+        string name = match.Groups[1].Value;
         uint uid = 0;
-
         if (match.Groups.Count > 2)
             uint.TryParse(match.Groups[2].Value, out uid);
-
-        var id = (int)uid;
-        var found = false;
-        var matches = devices.Where(x => x.Name == name);
-
-        if (matches.Count() > 1)
-        {
-            found = true;
-            matches = matches.Where(x => x.Id.GetDjb2HashCode() == uid);
-            if (matches.Count() > 1)
-                throw new CLIException("Found two devices with the same name. Please regenerate your command.");
-        }
-
-        if (matches.Count() == 1)
-            return matches.First().Id;
-
-        matches = devices.Where(x => x.Id.GetDjb2HashCode() == uid);
-        if (matches.Count() > 1)
-        {
-            found = true;
-            matches = matches.Where(x => x.Name == name);
-            if (matches.Count() > 1)
-                throw new CLIException("Found two devices with the same name. Please regenerate your command.");
-        }
-
-        if (matches.Count() == 1)
-            return matches.First().Id;
-
-        if (!found)
-            throw new CLIException($"Device \"{name}\" doesn't exist. Please regenerate your command.");
-        else
-            throw new CLIException("Please regenerate your command.");
+        return (name, uid);
     }
 
-    private static string[] GetArgs(string cmd)
+    public static string EncodeClass(AudioDeviceClass deviceClass)
+    {
+        return deviceClass switch
+        {
+            AudioDeviceClass.Capture => "recording",
+            AudioDeviceClass.Render => "playback",
+            _ => throw new NotImplementedException(),
+        };
+    }
+
+    public static bool DecodeClass(string text, out AudioDeviceClass? deviceClass)
+    {
+        switch (text)
+        {
+            case "-recording":
+                deviceClass = AudioDeviceClass.Capture;
+                return true;
+            case "-playback":
+                deviceClass = AudioDeviceClass.Render;
+                return true;
+            default:
+                deviceClass = default;
+                return false;
+        }
+    }
+
+    public static void ParseArguments(string[] cmdArgs, out string[] devices, out AudioDeviceClass type)
+    {
+        AudioDeviceClass? localType = null;
+
+        devices = cmdArgs.Where(arg =>
+        {
+            if (DecodeClass(arg, out localType))
+                return false;
+
+            return true;
+        }).ToArray();
+
+        type = localType.GetValueOrDefault(AudioDeviceClass.Render);
+    }
+
+    public static string[] ParseArguments(string cmd)
     {
         var args = new List<string>();
         var insideQuote = false;

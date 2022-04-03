@@ -1,195 +1,186 @@
 namespace AudioDeviceSwitcher.Tests;
 
+using Microsoft.Extensions.DependencyInjection;
 using Windows.ApplicationModel.DataTransfer;
-using Windows.Devices.Enumeration;
-using Windows.System;
-using Xunit;
+using Xunit.Abstractions;
 
-public sealed class AudioSwitcherTests
+public sealed partial class AudioPageViewModelTests : ViewModelTest
 {
-    [InlineData(DeviceClass.AudioRender)]
-    [InlineData(DeviceClass.AudioCapture)]
-    [UITheory]
-    public async Task Main(DeviceClass type)
+    public AudioPageViewModelTests(ITestOutputHelper output) : base(output)
     {
-        var initialDevice = AudioUtil.GetDefaultAudioId(type);
+    }
+
+    [InlineData(AudioDeviceClass.Render)]
+    [InlineData(AudioDeviceClass.Capture)]
+    [UITheory]
+    public async Task Main(AudioDeviceClass type)
+    {
+        var role = AudioDeviceRoleType.Default;
+        var audioManager = Services.GetRequiredService<IAudioManager>();
+        var cli = Services.GetRequiredService<CLI>();
+        var initialDevice = audioManager.GetDefaultAudioId(type, role);
 
         try
         {
-            using var page = new AudioPageViewModel(new(), type);
-            await page.LoadDevices();
+            using var model = await CreateViewModel(type);
+            await model.StartAudioWatcherAsync();
 
-            var devices = page.Devices
+            var devices = model.Devices
                 .Where(x => x.IsEnabled)
                 .OrderByDescending(x => x.IsDefault)
                 .Take(2)
                 .ToList();
-            page.SelectDevices(devices);
+            model.SelectDevices(devices);
 
             if (devices.Count < 2)
-                throw new Exception($"Test requires at least 2 {type} devices. Found: {string.Join(";", devices.Select(x => x.FullName)) }");
+                throw new Exception($"Test requires at least 2 {type} devices. Found: {string.Join(";", devices.Select(x => x.FullName))}");
 
-            var count = page.Devices.Count;
+            await model.ToggleAsync();
+            Assert.Equal(audioManager.GetDefaultAudioId(type, role), devices[1].Id);
+            Assert.NotEqual(audioManager.GetDefaultAudioId(type, role), initialDevice);
 
-            await page.ToggleAsync();
-            Assert.Equal(AudioUtil.GetDefaultAudioId(type), devices[1].Id);
-            Assert.NotEqual(AudioUtil.GetDefaultAudioId(type), initialDevice);
+            await model.ToggleAsync();
+            Assert.Equal(audioManager.GetDefaultAudioId(type, role), initialDevice);
 
-            await page.ToggleAsync();
-            Assert.Equal(AudioUtil.GetDefaultAudioId(type), initialDevice);
+            await cli.RunAsync(model.GetCmdArgs());
+            Assert.Equal(audioManager.GetDefaultAudioId(type, role), devices[1].Id);
+            Assert.NotEqual(audioManager.GetDefaultAudioId(type, role), initialDevice);
 
-            await CLI.RunAsync(page.GetCmdArgs());
-            Assert.Equal(AudioUtil.GetDefaultAudioId(type), devices[1].Id);
-            Assert.NotEqual(AudioUtil.GetDefaultAudioId(type), initialDevice);
+            await cli.RunAsync(model.GetCmdArgs());
+            Assert.Equal(audioManager.GetDefaultAudioId(type, role), initialDevice);
 
-            await CLI.RunAsync(page.GetCmdArgs());
-            Assert.Equal(AudioUtil.GetDefaultAudioId(type), initialDevice);
-
-            foreach (var device in page.Devices.Where(x => x.IsEnabled))
+            foreach (var device in model.Devices.Where(x => x.IsEnabled))
             {
-                page.ClearSelection();
-                page.SelectDevices(new[] { device });
-                var cmd = page.GetCmdArgs();
+                model.SelectDevices(new[] { device });
+                var cmd = model.GetCmdArgs();
                 Assert.StartsWith("\"", cmd);
-                await CLI.RunAsync(cmd);
-                Assert.True(AudioUtil.IsDefault(device.Id, type));
+                await cli.RunAsync(cmd);
+                Assert.True(audioManager.IsDefault(device.Id, type, role));
             }
         }
         finally
         {
-            AudioUtil.SetDefaultDevice(initialDevice);
+            audioManager.SetDefaultDevice(initialDevice, role);
         }
     }
 
     [UIFact]
     public async Task New()
     {
-        var audioSwitcher = new AudioSwitcher();
-        using var page = new AudioPageViewModel(audioSwitcher, DeviceClass.AudioRender) { IO = io };
+        using var model = await CreateViewModel(AudioDeviceClass.Render);
 
         foreach (var name in new[] { "Default", "Default", "Default 2" })
         {
-            AddInput(page, name);
-            await page.NewAsync();
+            AddInput(name);
+            await model.NewAsync();
 
-            Assert.Single(page.Commands, x => x.Name == name);
-            Assert.Single(audioSwitcher.Commands, x => x.Name == name);
+            Assert.Single(model.Commands, x => x.Name == name);
         }
     }
 
     [UIFact]
     public async Task Rename()
     {
-        using var page = new AudioPageViewModel(new(), DeviceClass.AudioRender) { IO = io };
-        AddInput(page, "Default 3");
-        await page.NewAsync();
+        using var model = await CreateViewModel(AudioDeviceClass.Render);
+        AddInput("Default 3");
+        await model.NewAsync();
 
-        AddInput(page, "Default");
-        await page.NewAsync();
-        Assert.Contains(page.Commands, x => x.Name == "Default");
+        AddInput("Default");
+        await model.NewAsync();
 
-        AddInput(page, "Default 2");
-        await page.RenameAsync();
-        Assert.Equal("Default 2", page.SelectedCommand.Name);
+        AddInput("Default 2");
+        await model.RenameAsync();
+        Assert.Equal("Default 2", model.SelectedCommand.Name);
+        Assert.Single(model.Commands, x => x.Name == "Default 2");
 
-        AddInput(page, "Default 3");
-        await page.RenameAsync();
-        Assert.Equal("Default 2", page.SelectedCommand.Name);
+        AddInput("Default 3");
+        await model.RenameAsync();
+        Assert.Equal("Default 2", model.SelectedCommand.Name);
     }
 
     [UIFact]
     public async Task Delete()
     {
-        using var model = new AudioPageViewModel(new(), DeviceClass.AudioRender) { IO = io };
-        model.LoadCommands();
-
+        using var model = await CreateViewModel(AudioDeviceClass.Render);
         var def = model.SelectedCommand;
-        Assert.Contains(model.Commands, x => x.Name == "Default command");
-        await model.DeleteAsync();
 
-        Assert.Contains(model.Commands, x => x.Name == "Default command");
-
-        AddInput(model, "Name");
+        var newCommandName = "Name";
+        AddInput(newCommandName);
         await model.NewAsync();
         await model.DeleteAsync();
 
-        Assert.DoesNotContain(model.Commands, x => x.Name == "Name");
+        Assert.DoesNotContain(model.Commands, x => x.Name == newCommandName);
         Assert.Same(model.SelectedCommand, def);
+    }
+
+    [UIFact]
+    public async Task Delete_Last_Forbidden()
+    {
+        using var model = await CreateViewModel(AudioDeviceClass.Render);
+        Assert.Contains(model.Commands, x => x.Name == "Default command");
+        await model.DeleteAsync();
+        Assert.Contains(model.Commands, x => x.Name == "Default command");
     }
 
     [UIFact]
     async Task Save()
     {
-        using var page = new AudioPageViewModel(new(), DeviceClass.AudioRender) { IO = io };
-        page.LoadCommands();
+        using var model = await CreateViewModel(AudioDeviceClass.Render);
 
-        AddInput(page, "Default 2");
-        await page.RenameAsync();
-        var expectedHotKey = new Hotkey(VirtualKeyModifiers.Control, VirtualKey.A);
-        await page.SetHotkeyAsync(expectedHotKey);
+        AddInput("Default 2");
+        await model.RenameAsync();
+        var expectedHotKey = new Hotkey(KeyModifiers.Control, Key.A);
+        model.SetHotkey(expectedHotKey);
 
-        Assert.Equal("Default 2", page.SelectedCommand.Name);
-        Assert.Equal(expectedHotKey, page.SelectedCommand.Hotkey);
-        Assert.Equal(page.SelectedCommand.Hotkey, page.Hotkey);
+        Assert.Equal("Default 2", model.SelectedCommand.Name);
+        Assert.Equal(expectedHotKey, model.SelectedCommand.Hotkey);
+        Assert.Equal(model.SelectedCommand.Hotkey, model.Hotkey);
     }
 
     [UIFact]
     async Task ShowDisabledDevice()
     {
-        using var page = new AudioPageViewModel(new(new() { ShowDisabledDevices = true }), DeviceClass.AudioRender) { IO = io };
-        await page.LoadDevices();
-        var count = page.FilteredDevices.Count();
-        var device = page.Devices.First(x => !x.IsDisabled);
+        var services = CreateServideProvider(state: new AudioSwitcherState() { ShowDisabledDevices = true });
+        var audioManager = services.GetRequiredService<IAudioManager>();
+        var audioSwitcher = services.GetRequiredService<AudioSwitcher>();
+        await audioSwitcher.LoadAsync();
+        using var model = await CreateViewModel(AudioDeviceClass.Render);
+        await model.StartAudioWatcherAsync();
+        var count = model.FilteredDevices.Count();
+        var device = model.Devices.First(x => !x.IsDisabled);
 
         try
         {
-            await page.ToggleDeviceVisibilityAsync(device, sync: true);
-            Assert.Equal(count, page.FilteredDevices.Count());
-            Assert.Contains(device, page.FilteredDevices);
+            await model.ToggleDeviceVisibilityAsync(device, sync: true);
+            Assert.Equal(count, model.FilteredDevices.Count());
+            Assert.Contains(device, model.FilteredDevices);
 
-            page.ShowDisabledDevices();
-            Assert.DoesNotContain(device, page.FilteredDevices);
+            model.ToggleShowDisabledDevices();
+            Assert.DoesNotContain(device, model.FilteredDevices);
         }
         finally
         {
-            AudioUtil.SetVisibility(device.Id, true);
+            audioManager.SetVisibility(device.Id, true);
         }
     }
 
     [UIFact]
     public async Task CopyCommandToClipboard()
     {
-        using var page = new AudioPageViewModel(new(), DeviceClass.AudioRender);
-        await page.LoadDevices();
+        using var model = await CreateViewModel(AudioDeviceClass.Render);
+        await model.StartAudioWatcherAsync();
 
-        page.SelectDevices(page.Devices.Take(2));
-        await page.CopyCommandToClipboardAsync();
+        model.SelectDevices(model.Devices.Take(2));
+        await model.CopyCommandToClipboardAsync();
         var text = await Clipboard.GetContent().GetTextAsync();
 
-        Assert.Equal(text, page.GetCmd());
+        Assert.Equal(text, model.GetCmd());
     }
 
-    void AddInput(AudioPageViewModel page, string msg) => io.Queue.Enqueue(msg);
-
-    TestIO io = new();
-
-    sealed class TestIO : IO
+    private async Task<AudioPageViewModel> CreateViewModel(AudioDeviceClass type)
     {
-        public Queue<string> Queue = new();
-
-        public Task ShowMessageAsync(string title, string message)
-        {
-            return Task.CompletedTask;
-        }
-
-        public Task<string?> GetMessageAsync(string message, string defValue)
-        {
-            return Task.FromResult<string?>(Queue.Dequeue());
-        }
-
-        public Task ShowNotification(string message)
-        {
-            return Task.CompletedTask;
-        }
+        var model = Services.GetRequiredService<AudioPageViewModel>();
+        await model.InitializeAsync(type, watch: false);
+        return model;
     }
 }

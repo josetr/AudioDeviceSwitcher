@@ -62,8 +62,7 @@ function Restore {
 }
 
 function Test {
-	msbuild test/AudioDeviceSwitcher.Tests.csproj -v:m -nologo -p:Configuration=$configuration -p:Platform=$platform
-	dotnet test bin\**\AudioDeviceSwitcher.Tests.dll
+	dotnet test test/AudioDeviceSwitcher.Tests.csproj  -v:m -nologo -p:Configuration=$configuration -p:Platform=$platform
 }
 
 function Create-Certificate {

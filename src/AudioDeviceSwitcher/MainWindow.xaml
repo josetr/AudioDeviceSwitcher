@@ -16,7 +16,7 @@
         </Grid.RowDefinitions>
         <StackPanel Grid.Row="0" x:Name="CustomTitleBar" Height="30" VerticalAlignment="Center" Orientation="Horizontal">
             <Image Source="Images/StoreLogo.png" Width="16" Height="16" Margin="8,5,5,4" VerticalAlignment="Center" />
-            <TextBlock Width="Auto" FontSize="12" VerticalAlignment="Center" Text="{x:Bind local:Settings.Title}" Foreground="White" />
+            <TextBlock Width="Auto" FontSize="12" VerticalAlignment="Center" Text="{x:Bind local:AudioSwitcherState.Title}" Foreground="White" />
         </StackPanel>
         <NavigationView Grid.Row="1" x:Name="NavView" IsSettingsVisible="true" PaneDisplayMode="Top" IsBackButtonVisible="Collapsed" SelectionChanged="NavView_SelectionChanged" VerticalAlignment="Stretch" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
             <NavigationView.MenuItems>

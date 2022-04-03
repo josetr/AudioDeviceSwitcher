@@ -3,17 +3,15 @@
 namespace AudioDeviceSwitcher;
 
 using System.Text.RegularExpressions;
-using Microsoft.UI.Xaml.Media.Imaging;
 using MvvmGen;
 using Windows.Devices.Enumeration;
-using Windows.Media.Devices;
 
 [ViewModel]
 public sealed partial class AudioDeviceViewModel
 {
     [Property] private string _id;
     [Property] private string _fullName;
-    [Property] private BitmapImage _img;
+    [Property] private DeviceThumbnail _img;
     [Property] private bool _isDefault;
     [Property] private bool _isDefaultCommunication;
     [Property] private bool _isEnabled;
@@ -26,57 +24,39 @@ public sealed partial class AudioDeviceViewModel
     {
         get
         {
-            var name = Regex.Match(FullName, @"(.+) \((.+)\)").Groups[1].Value;
+            var name = GetFullNameParts().Groups[1].Value;
             return name.Length > 0 ? name : FullName;
         }
     }
 
-    [PropertyInvalidate(nameof(FullName))]
-    public string DeviceName => Regex.Match(FullName, @"(.+) \((.+)\)").Groups[2].Value;
+    public bool IsSelected { get; set; } = true;
 
-    public static AudioDeviceViewModel Create(DeviceInformation deviceInfo, DeviceClass deviceClass)
+    [PropertyInvalidate(nameof(FullName))]
+    public string DeviceName => GetFullNameParts().Groups[2].Value;
+
+    public static AudioDeviceViewModel Create(IAudioManager audioManager, AudioDevice deviceInfo, AudioDeviceClass deviceClass)
     {
         return new AudioDeviceViewModel
         {
             FullName = deviceInfo.Name,
             Id = deviceInfo.Id,
-            IsEnabled = deviceInfo.IsEnabled,
-            IsDefault = AudioUtil.IsDefault(deviceInfo.Id, deviceClass),
-            IsDefaultCommunication = AudioUtil.IsDefault(deviceInfo.Id, deviceClass, AudioDeviceRole.Communications),
+            IsEnabled = audioManager.IsActive(deviceInfo.Id),
+            IsDefault = audioManager.IsDefault(deviceInfo.Id, deviceClass, AudioDeviceRoleType.Default),
+            IsDefaultCommunication = audioManager.IsDefault(deviceInfo.Id, deviceClass, AudioDeviceRoleType.Communications),
         };
     }
 
-    public async Task LoadImageAsync(DeviceInformation deviceInfo)
+    public void Update(AudioDeviceChanges changes)
     {
-        try
-        {
-            var img = new BitmapImage();
-            var thumbnail = await deviceInfo.GetThumbnailAsync();
-            await img.SetSourceAsync(thumbnail);
-            Img = img;
-        }
-        catch
-        {
-            return;
-        }
+        if (changes.FullName != null)
+            FullName = changes.FullName;
+
+        if (changes.IsEnabled.HasValue)
+            IsEnabled = changes.IsEnabled.Value;
     }
 
-    public void Update(DeviceInformationUpdate deviceInfo)
+    private Match GetFullNameParts()
     {
-        foreach (var prop in deviceInfo.Properties)
-        {
-            if (prop.Key == "System.ItemNameDisplay")
-                FullName = (string)prop.Value;
-            else if (prop.Key == "System.Devices.InterfaceEnabled")
-                IsEnabled = (bool)prop.Value;
-        }
-    }
-
-    public void UpdateDefault(AudioDeviceRole role, string id)
-    {
-        if (role == AudioDeviceRole.Default)
-            IsDefault = id == Id;
-        else if (role == AudioDeviceRole.Communications)
-            IsDefaultCommunication = id == Id;
+        return Regex.Match(FullName, @"(.+) \((.+)\)");
     }
 }

@@ -9,10 +9,10 @@
 
     <StackPanel Orientation="Vertical" Padding="10">
         <local:SettingsPageEntry Title="Dark theme" Reason="" IsChecked="{x:Bind ViewModel.DarkTheme, Mode=TwoWay}" Command="{x:Bind ViewModel.SetDarkThemeCommand}" />
-        <local:SettingsPageEntry Title="Run in background" Reason="Required to support global hotkeys" IsChecked="{x:Bind ViewModel.RunInBackground, Mode=TwoWay}" Command="{x:Bind ViewModel.SetRunInBackgroundAsyncCommand}" />
+        <local:SettingsPageEntry Title="Run in background" Reason="Required to support global hotkeys" IsChecked="{x:Bind ViewModel.RunInBackground, Mode=TwoWay}" Command="{x:Bind ViewModel.SetRunInBackgroundCommand}" />
         <local:SettingsPageEntry Title="Run at startup" Reason="Required to support global hotkeys" IsChecked="{x:Bind ViewModel.RunAtStartup, Mode=TwoWay}" Command="{x:Bind ViewModel.SetRunAtStartupAsyncCommand}" />
-        <local:SettingsPageEntry Title="Run at startup minimized" IsChecked="{x:Bind ViewModel.RunAtStartupMinimized, Mode=TwoWay}" Command="{x:Bind ViewModel.SetRunAtStartupMinimizedAsyncCommand}" />
-        <local:SettingsPageEntry Title="Switch communication device" Reason="" IsChecked="{x:Bind ViewModel.SwitchCommunicationDevice, Mode=TwoWay}" Command="{x:Bind ViewModel.SetSwitchCommunicationDeviceAsyncCommand}" />
-        <local:SettingsPageEntry Title="Show disabled devices" Reason="" IsChecked="{x:Bind ViewModel.ShowDisabledDevices, Mode=TwoWay}" Command="{x:Bind ViewModel.SetShowDisabledDevicesAsyncCommand}" />
+        <local:SettingsPageEntry Title="Run at startup minimized" IsChecked="{x:Bind ViewModel.RunAtStartupMinimized, Mode=TwoWay}" Command="{x:Bind ViewModel.SetRunAtStartupMinimizedCommand}" />
+        <local:SettingsPageEntry Title="Switch communication device" Reason="" IsChecked="{x:Bind ViewModel.SwitchCommunicationDevice, Mode=TwoWay}" Command="{x:Bind ViewModel.SetSwitchCommunicationDeviceCommand}" />
+        <local:SettingsPageEntry Title="Show disabled devices" Reason="" IsChecked="{x:Bind ViewModel.ShowDisabledDevices, Mode=TwoWay}" Command="{x:Bind ViewModel.SetShowDisabledDevicesCommand}" />
     </StackPanel>
 </Page>

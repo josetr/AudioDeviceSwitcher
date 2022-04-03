@@ -2,8 +2,10 @@
 
 namespace AudioDeviceSwitcher;
 
-public sealed class Device
+public sealed record AudioDevice(string Id, string Name)
 {
-    public string Id { get; set; } = string.Empty;
-    public string Name { get; set; } = string.Empty;
+    public AudioDevice()
+        : this(string.Empty, string.Empty)
+    {
+    }
 }

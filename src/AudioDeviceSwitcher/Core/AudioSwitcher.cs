@@ -2,201 +2,224 @@
 
 namespace AudioDeviceSwitcher;
 
-using System.Text;
-using AudioDeviceSwitcher.Interop;
-using Windows.Devices.Enumeration;
+using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+using AudioDeviceSwitcher.Core.Application;
 
-public sealed class AudioSwitcher
+public sealed partial class AudioSwitcher
 {
-    public AudioSwitcher(Settings? settings = null)
+    public const string StartupTaskId = "Startup";
+    private readonly IStateStorage stateStorage;
+    private readonly IStartupTaskManager startupTaskManager;
+    private readonly IHotkeyManager hotkeyManager;
+    private readonly INotificationService notificationService;
+    private readonly IO io;
+    private AudioSwitcherState state;
+
+    public AudioSwitcher(
+        IAudioManager audioManager,
+        IStartupTaskManager startupTaskManager,
+        IO io,
+        IStateStorage stateStorage,
+        IHotkeyManager hotkeyManager,
+        INotificationService notificationService,
+        AudioSwitcherState? initialState = null)
     {
-        Settings = settings ?? new();
+        this.stateStorage = stateStorage;
+        AudioManager = audioManager;
+        state = initialState ?? new();
+        this.startupTaskManager = startupTaskManager;
+        this.hotkeyManager = hotkeyManager;
+        this.notificationService = notificationService;
+        this.io = io;
     }
 
-    public List<Command> Commands { get; set; } = new();
-    public Settings Settings { get; set; }
-    public IntPtr Hwnd { get; set; }
-    public IO IO { get; internal set; } = new NullIO();
+    public IAudioManager AudioManager { get; }
+    public IReadOnlyList<Command> Commands => state.Commands;
+    public bool RunAtStartup => state.RunAtStartup;
+    public bool RunAtStartupMinimized => state.RunAtStartupMinimized;
+    public bool RunInBackground => state.RunInBackground;
+    public bool ShowDisabledDevices => state.ShowDisabledDevices;
+    public bool SwitchCommunicationDevice => state.SwitchCommunicationDevice;
+    public bool DarkTheme => state.DarkTheme;
 
-    public Command AddCommand(string name, DeviceClass deviceClass)
+    public async Task LoadAsync()
     {
-        name = name.Trim();
+        state = stateStorage.Load();
+        var task = await startupTaskManager.GetTaskAsync(StartupTaskId);
+        if (task != null)
+            state.RunAtStartup = await task.IsEnabledAsync();
 
-        if (string.IsNullOrWhiteSpace(name))
-            throw new AudioSwitcherException("Name cannot be empty");
+        if (!Commands.Any(x => x.DeviceClass == AudioDeviceClass.Render))
+            state.Commands.Add(new("Default command", AudioDeviceClass.Render));
 
-        if (Commands.Any(x => x.Name.ToLower() == name.ToLower()))
-            throw new AudioSwitcherException($"Name '{name}' is already in use");
+        if (!Commands.Any(x => x.DeviceClass == AudioDeviceClass.Capture))
+            state.Commands.Add(new("Default recording command", AudioDeviceClass.Capture));
 
-        var command = new Command(name, deviceClass);
-        Commands.Add(command);
-        SaveSettings();
+        RegisterHotkeys();
+    }
+
+    public void Save()
+    {
+        stateStorage.Save(state);
+    }
+
+    public Command AddCommand(CommandName name, AudioDeviceClass deviceClass, Hotkey? hotkey = null, string[]? devices = null)
+    {
+        EnsureNameIsAvailable(name);
+        var command = new Command(name, deviceClass, hotkey, devices);
+        state.Commands.Add(command);
+        Save();
         return command;
     }
 
-    public void RenameCommand(string name, string newName)
+    public void RenameCommand(CommandName name, CommandName newName)
     {
-        newName = newName.Trim();
-
-        var command = Commands.FirstOrDefault(x => x.Name.ToLower() == name.ToLower());
-        if (command == null)
-            throw new AudioSwitcherException($"Command '{name}' doesn't exist.");
-
-        var newCommand = Commands.FirstOrDefault(x => x.Name.ToLower() == newName.ToLower());
-        if (newCommand != null)
-            throw new AudioSwitcherException($"Name '{newName}' is already in use.");
-
-        UnregisterCommandHotkey(command);
-        command.Name = newName;
-        SaveSettings();
+        EnsureNameIsAvailable(newName);
+        var command = GetCommand(name);
+        SaveCommand(command with { Name = newName }, name);
     }
 
-    public void DeleteCommand(string name)
+    public void DeleteCommand(CommandName name)
     {
-        var command = Commands.FirstOrDefault(x => x.Name.ToLower() == name.ToLower());
-        if (command == null)
-            throw new AudioSwitcherException("Command doesn't exist.");
+        var command = GetCommand(name);
 
         if (Commands.Count(x => x.DeviceClass == command.DeviceClass) <= 1)
-            throw new AudioSwitcherException("It's not possible to delete the last command.");
+            throw new AudioSwitcherException("Command list cannot be left empty.");
 
-        UnregisterCommandHotkey(command);
-        Commands.Remove(command);
-        SaveSettings();
+        hotkeyManager.UnregisterHotkey(command.HotkeyId);
+        state.Commands.Remove(command);
+        Save();
     }
 
-    public void Load()
+    public void ChangeCommandHotkey(Command command, Hotkey hotkey)
     {
-        Settings = Settings.Load();
-        Commands = Settings.Commands.ToList();
-
-        if (!Commands.Any(x => x.DeviceClass == DeviceClass.AudioRender))
-            Commands.Add(new("Default command", DeviceClass.AudioRender));
-
-        if (!Commands.Any(x => x.DeviceClass == DeviceClass.AudioCapture))
-            Commands.Add(new("Default recording command", DeviceClass.AudioCapture));
-    }
-
-    public void SaveSettings()
-    {
-        Settings.Commands = Commands.ToArray();
-        Settings.Save();
-    }
-
-    public void RegisterHotkeys()
-    {
-        Commands.ForEach(command => UnregisterCommandHotkey(command));
-        Commands.ForEach(command => RegisterCommandHotkey(command));
-    }
-
-    public void RegisterCommandHotkey(Command command)
-    {
-        if (command.Hotkey != Hotkey.Empty)
-            User32.RegisterHotKey(Hwnd, command.Name.GetDjb2HashCode(), User32.ToModifiers(command.Hotkey.Modifiers), command.Hotkey.Key);
-    }
-
-    public void UnregisterCommandHotkey(Command command)
-    {
-        while (User32.UnregisterHotKey(Hwnd, command.Name.GetDjb2HashCode()))
+        if (hotkey != Hotkey.Empty)
         {
+            var cmd = Commands.FirstOrDefault(x => x.Hotkey == hotkey && x.DeviceClass == command.DeviceClass);
+            if (cmd != null && cmd.Name != command.Name)
+                throw new AudioSwitcherException($"'{hotkey}' is already in use by command '{cmd.Name}'");
         }
+
+        SaveCommand(command with { Hotkey = hotkey });
     }
 
-    public static string GetCommandArgs(DeviceClass deviceClass, Device[] devices)
-    {
-        var type = deviceClass switch
-        {
-            DeviceClass.AudioCapture => "recording",
-            DeviceClass.AudioRender => "playback",
-            _ => throw new NotImplementedException(),
-        };
-
-        if (devices.Count() >= 1)
-            return $"{string.Join(" ", devices.Select(x => QN(x)))} -{type}";
-        else
-            return string.Empty;
-
-        static string QN(Device name)
-        {
-            return $"\"{name.Name} / {name.Id.GetDjb2HashCode()}\"";
-        }
-    }
-
-    public async Task OnHotkeyAsync(Hotkey hotkey)
+    public Task ExecuteCommandByHotkeyAsync(Hotkey hotkey)
     {
         var commands = Commands.Where(x => x.Hotkey == hotkey).OrderBy(x => x.DeviceClass);
         if (!commands.Any())
             throw new AudioSwitcherException($"Command with hotkey '{hotkey}' doesn't exist.");
 
-        var messages = new List<string>();
-        Func<string, Task> output = message =>
-        {
-            messages.Add(message);
-            return Task.CompletedTask;
-        };
+        return ExecuteCommandsAsync(commands);
+    }
 
+    public Task ExecuteCommandAsync(Command command)
+    {
+        return ExecuteCommandsAsync(new[] { command });
+    }
+
+    public async Task ExecuteCommandsAsync(IEnumerable<Command> commands)
+    {
+        var notificationService = new GroupNotificationService(this.notificationService);
         foreach (var command in commands)
-            await ToggleAsync(command.DeviceClass, command.Devices, Settings.SwitchCommunicationDevice, null, output);
-
-        if (messages.Count > 0)
-            await IO.ShowNotification(string.Join("\n", messages));
+            await ToggleAsync(command.DeviceClass, command.Devices, notificationService);
+        notificationService.Commit();
     }
 
-    public async Task ToggleAsync(DeviceClass deviceClass, IEnumerable<string> devices, bool com, IEnumerable<DeviceInformation>? availableDevices = null, Func<string, Task>? output = null)
+    public void RegisterHotkeys()
     {
-        if (availableDevices == null)
-            availableDevices = await DeviceInformation.FindAllAsync(AudioUtil.GetInterfaceGuid(deviceClass));
+        var commands = Commands.Where(x => x.Hotkey != Hotkey.Empty).ToList();
+        commands.ForEach(command => hotkeyManager.UnregisterHotkey(command.HotkeyId));
+        commands.ForEach(command => hotkeyManager.RegisterHotkey(command.HotkeyId, command.Hotkey));
+    }
 
-        if (output == null)
-            output = msg => IO.ShowNotification(msg);
-
-        if (!devices.Any())
-            throw new AudioSwitcherException("Please select one or more devices.");
-
-        var skipped = new StringBuilder();
-        var defaultAudioDevice = AudioUtil.GetDefaultAudioId(deviceClass);
-
-        foreach (var deviceId in GetNext(devices.ToArray(), defaultAudioDevice))
-        {
-            if (string.IsNullOrWhiteSpace(deviceId))
-                continue;
-
-            var device = availableDevices.FirstOrDefault(x => x.Id == deviceId);
-            var deviceName = device?.Name ?? deviceId;
-
-            if (!AudioUtil.SetDefaultDevice(deviceId))
-            {
-                skipped.AppendLine($"⚠️ Skipped '{deviceName} because it may not exist.");
-                continue;
-            }
-
-            if (AudioUtil.GetDefaultAudioId(deviceClass) != deviceId)
-            {
-                skipped.AppendLine($"⚠️ Skipped '{deviceName}' because it may be disconnected.");
-                continue;
-            }
-
-            if (com)
-                AudioUtil.SetDefaultDevice(deviceId, ERole.eCommunications);
-
-            if (deviceId == defaultAudioDevice && skipped.Length > 0)
-                await output(skipped.ToString());
-            else
-                await output($"✔️ {deviceName}");
-
+    public void SaveCommand(Command command, string? name = null)
+    {
+        name ??= command.Name;
+        var index = state.Commands.FindIndex(x => x.Name == name);
+        if (index < 0)
             return;
-        }
+
+        if (!string.Equals(Commands[index].Name, command.Name))
+            hotkeyManager.UnregisterHotkey(Commands[index].HotkeyId);
+
+        state.Commands[index] = command;
+        Save();
+        RegisterHotkeys();
     }
 
-    public static IEnumerable<string> GetNext(string[] devices, string currentDeviceId)
+    public async Task ToggleAsync(AudioDeviceClass deviceClass, IEnumerable<string> devices, INotificationService notificationService)
     {
-        for (int i = 0; i < devices.Length; ++i)
-        {
-            var device = devices[i];
-            if (device == currentDeviceId)
-                return devices.TakeLast(devices.Length - i - 1).Concat(devices.Take(i + 1));
-        }
+        var toggler = new AudioSwitcherToggler(AudioManager, notificationService);
+        await toggler.ToggleAsync(deviceClass, devices, state.SwitchCommunicationDevice);
+    }
 
-        return devices;
+    public async Task<bool> SetRunAtStartupTask(bool enable)
+    {
+        var startupTask = await startupTaskManager.GetTaskAsync(StartupTaskId);
+
+        if (!enable)
+            await startupTask.DisableAsync();
+        else
+            await startupTask.EnableAsync();
+
+        var isEnabled = await startupTask.IsEnabledAsync();
+        state.RunAtStartup = isEnabled;
+
+        if (enable && !isEnabled)
+            return false;
+
+        Save();
+        return true;
+    }
+
+    public void SetRunAtStartupMinimized(bool runAtStartupMinimized)
+    {
+        state.RunAtStartupMinimized = runAtStartupMinimized;
+        Save();
+    }
+
+    public void SetRunInBackground(bool runInBackground)
+    {
+        state.RunInBackground = runInBackground;
+        Save();
+    }
+
+    public void SetSwitchCommunicationDevice(bool switchCommunicationDevice)
+    {
+        state.SwitchCommunicationDevice = switchCommunicationDevice;
+        Save();
+    }
+
+    public void SetShowDisabledDevices(bool showDisabledDevices)
+    {
+        state.ShowDisabledDevices = showDisabledDevices;
+        Save();
+    }
+
+    public void SetDarkTheme(bool darkTheme)
+    {
+        state.DarkTheme = darkTheme;
+        Save();
+    }
+
+    private bool TryGetCommand(string name, [MaybeNullWhen(false)] out Command command)
+    {
+        command = Commands.FirstOrDefault(x => x.Name.ToLower() == name.ToLower());
+        return command != null;
+    }
+
+    private void EnsureNameIsAvailable(string name)
+    {
+        if (TryGetCommand(name, out var _))
+            throw new AudioSwitcherException($"Name '{name}' is already in use.");
+    }
+
+    private Command GetCommand(string name)
+    {
+        if (!TryGetCommand(name, out var command))
+            throw new AudioSwitcherException($"Command '{name}' doesn't exist.");
+
+        return command;
     }
 }
