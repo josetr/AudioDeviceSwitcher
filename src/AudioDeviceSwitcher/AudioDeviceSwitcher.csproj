@@ -10,8 +10,6 @@
     <PublishSingleFile Condition="'$(AppPublishSingleFile)' == 'true'">true</PublishSingleFile>
     <PublishTrimmed>false</PublishTrimmed> <!-- https://github.com/microsoft/CsWinRT/issues/373 -->
     <SelfContained>true</SelfContained>
-    <DebugType>full</DebugType>
-    <DebugSymbols>true</DebugSymbols>
   </PropertyGroup>
 
   <ItemGroup>
