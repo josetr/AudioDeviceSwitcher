@@ -65,6 +65,15 @@ function Test {
 	dotnet test test/AudioDeviceSwitcher.Tests.csproj  -v:m -nologo -p:Configuration=$configuration -p:Platform=$platform
 }
 
+function Coverage {
+	$dir = "$root/TestResults"
+	Remove-Item $dir -Force -Recurse -ErrorAction SilentlyContinue
+	dotnet test test/AudioDeviceSwitcher.Tests.csproj  -v:m -nologo -p:Configuration=$configuration -p:Platform=$platform --collect "XPlat Code Coverage" -r $dir --settings coverage.runsettings
+	$result = (Get-Item TestResults/**/*.xml).FullName
+	reportgenerator -reports:$result -targetdir:$dir -reporttypes html
+	Start-Process "$dir/index.html"
+}
+
 function Create-Certificate {
 	Set-Content -Path "${projectName}.txt" -Value "$env:CERTIFICATE"
 	certutil -decode "${projectName}.txt" "${projectName}.pfx"
@@ -75,6 +84,7 @@ switch ($cmd)
 {
 	"restore" { Restore }
 	"test" { Test }
+	"coverage" { Coverage }
 	"install-audio-devices" { Install-Audio-Devices }
 	"set-package-version" { Set-Package-Version }
 	"create-certificate" { Create-Certificate }
