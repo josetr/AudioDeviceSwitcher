@@ -66,3 +66,13 @@ jobs:
         with:
           name: Upload
           path: AppPackages/*.msixupload
+
+      - name: Publish to Windows Store
+        uses: isaacrlevin/windows-store-action@1.0
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          tenant-id: ${{ secrets.AZURE_AD_TENANT_ID }}
+          client-id: ${{ secrets.AZURE_AD_APPLICATION_CLIENT_ID }}
+          client-secret: ${{ secrets.AZURE_AD_APPLICATION_SECRET }}
+          app-id: ${{ secrets.STORE_APP_ID }}
+          package-path: "AppPackages"
