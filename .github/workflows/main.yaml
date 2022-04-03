@@ -60,6 +60,9 @@ jobs:
         with:
           name: Certificate
           path: AppPackages/AudioDeviceSwitcher (Package)_${{ env.NBGV_SimpleVersion }}.0_Test/*.cer
+          
+      - name: Remove _Test folder
+        run: Remove-Item AppPackages/*_Test -Recurse
 
       - name: Upload bundle for ms store
         uses: actions/upload-artifact@v2
