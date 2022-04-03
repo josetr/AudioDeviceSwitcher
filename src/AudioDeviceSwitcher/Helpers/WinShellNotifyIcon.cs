@@ -6,7 +6,7 @@ using AudioDeviceSwitcher.Interop;
 using System.Runtime.InteropServices;
 using static PInvoke.User32;
 
-public sealed class WinNotifyIcon
+public sealed class WinShellNotifyIcon
 {
     internal const WindowMessage NotifyIconCallbackId = WindowMessage.WM_USER + 1000;
     private readonly IntPtr hwnd;
@@ -15,7 +15,7 @@ public sealed class WinNotifyIcon
     private Shell32.NOTIFYICONDATA notifyIconData;
     private bool created;
 
-    public WinNotifyIcon(IntPtr hwnd, string title, IntPtr iconHandle)
+    public WinShellNotifyIcon(IntPtr hwnd, string title, IntPtr iconHandle)
     {
         this.hwnd = hwnd;
         this.title = title;

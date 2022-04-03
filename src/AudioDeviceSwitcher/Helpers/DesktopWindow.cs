@@ -17,7 +17,7 @@ public class DesktopWindow : Window
     private readonly IntPtr _hwnd;
     private readonly IntPtr _oldWndProc;
     private readonly WinProc? _newWndProc;
-    private readonly WinNotifyIcon _shellIcon;
+    private readonly WinShellNotifyIcon _shellIcon;
     private readonly IntPtr _iconHandle;
 
     public DesktopWindow(string title, string icon)
@@ -39,7 +39,7 @@ public class DesktopWindow : Window
     public int MinHeight { get; set; } = -1;
     public bool IsVisible => IsWindowVisible(_hwnd);
     public bool IsActive => GetActiveWindow() == _hwnd;
-    protected WinNotifyIcon ShellIcon => _shellIcon;
+    protected WinShellNotifyIcon ShellIcon => _shellIcon;
 
     public void Maximize() => _ = ShowWindow(_hwnd, WindowShowStyle.SW_MAXIMIZE);
     public void Minimize() => _ = ShowWindow(_hwnd, WindowShowStyle.SW_MINIMIZE);
@@ -90,7 +90,7 @@ public class DesktopWindow : Window
                     else
                         _shellIcon.Delete();
                     break;
-                case WinNotifyIcon.NotifyIconCallbackId:
+                case WinShellNotifyIcon.NotifyIconCallbackId:
                     OnShellNotifyIconMessage((WindowMessage)(short)lParam);
                     break;
                 case WindowMessage.WM_HOTKEY:
