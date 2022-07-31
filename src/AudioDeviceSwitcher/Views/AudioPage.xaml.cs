@@ -43,8 +43,8 @@ public sealed partial class AudioPage : Page, IDisposable
 
     private async void AudioPage_Loaded(object sender, RoutedEventArgs e)
     {
-        App.Current.UpdateTheme();
         await ViewModel.InitializeAsync(deviceClass, watch: true, AudioListView.SelectedItems);
+        App.Current.UpdateTheme();
     }
 
     private async void HotKey_ProcessKeyboardAccelerators(UIElement sender, ProcessKeyboardAcceleratorEventArgs args)
