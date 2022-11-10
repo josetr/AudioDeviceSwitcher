@@ -10,6 +10,7 @@ using Windows.ApplicationModel;
 using Activation = Windows.ApplicationModel.Activation;
 using PInvoke;
 using Microsoft.UI.Xaml.Controls;
+using System.Reflection.Metadata.Ecma335;
 
 public sealed partial class App : Application, IApp
 {
@@ -57,7 +58,7 @@ public sealed partial class App : Application, IApp
                 User32.MessageBox(IntPtr.Zero, e.Message, AudioSwitcherState.Title, User32.MessageBoxOptions.MB_ICONERROR);
             }
 
-            Exit();
+            ExitNow();
             return;
         }
 
@@ -67,7 +68,7 @@ public sealed partial class App : Application, IApp
             Kernel32.GetLastError() == Win32ErrorCode.ERROR_ACCESS_DENIED)
         {
             DesktopWindow.BroadcastRestore();
-            Exit();
+            ExitNow();
             return;
         }
 
@@ -82,6 +83,13 @@ public sealed partial class App : Application, IApp
             _window.RunInBackround();
         else
             _window.Activate();
+
+        // TODO: Remove workaround once Application.Exit() gets fixed
+        // See https://github.com/microsoft/microsoft-ui-xaml/issues/5931
+        static void ExitNow()
+        {
+            Environment.Exit(0);
+        }
     }
 
     private static IServiceProvider ConfigureServices()
